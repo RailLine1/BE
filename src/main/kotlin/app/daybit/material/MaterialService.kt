@@ -114,14 +114,11 @@ class MaterialService(
 
     /** P-MAT-02, 03 · P-BIT-18 */
     @Transactional
-    fun upload(userId: Long, folderId: Long, file: MultipartFile, title: String, consent: Boolean): UploadResponse {
+    fun upload(userId: Long, folderId: Long, file: MultipartFile, title: String?, consent: Boolean): UploadResponse {
         val folder = folder(folderId)
         requireManager(userId, folder.courseId, lock = true)
         if (!consent) throw ApiException(ErrorCode.VALIDATION_FAILED, "consent: 자료 사용 동의가 필요해요.")
-        val cleanTitle = title.trim()
-        if (cleanTitle.isEmpty() || cleanTitle.length > TITLE_MAX) {
-            throw ApiException(ErrorCode.VALIDATION_FAILED, "title: 제목은 1~${TITLE_MAX}자로 입력해 주세요.")
-        }
+        val cleanTitle = resolveTitle(title, file.originalFilename)
         val bytes = file.bytes
         if (!isPdf(bytes)) throw ApiException(ErrorCode.VALIDATION_FAILED, "file: PDF 파일만 올릴 수 있어요.")
 
@@ -163,6 +160,26 @@ class MaterialService(
         if (!manager && file.status != FileStatus.ready) throw ApiException(ErrorCode.NOT_FOUND)
         val temp = storage.temporaryUrl(file.storageKey, VIEW_TTL)
         return FileViewResponse(temp.url, temp.expiresAt)
+    }
+
+    /** 이름만 바꿔요. 원본 · 추출 텍스트 · 문제의 근거는 파일 id 로 이어져 있어서 그대로예요 */
+    @Transactional
+    fun renameFile(userId: Long, fileId: Long, title: String): FileItem {
+        val file = file(fileId)
+        requireManager(userId, file.courseId)
+        val clean = title.trim().ifEmpty { throw ApiException(ErrorCode.VALIDATION_FAILED, "title: 이름을 입력해 주세요.") }
+        return jdbc.sql(
+            "update files set title = :title where id = :id returning id, title, status, pages, created_at",
+        ).param("title", clean).param("id", fileId)
+            .query { rs, _ ->
+                FileItem(
+                    fileId = rs.getLong("id"),
+                    title = rs.getString("title"),
+                    status = FileStatus.valueOf(rs.getString("status")),
+                    pages = rs.getObject("pages") as Int?,
+                    uploadedAt = rs.getObject("created_at", OffsetDateTime::class.java),
+                )
+            }.single()
     }
 
     @Transactional
@@ -211,6 +228,16 @@ class MaterialService(
                 }
             },
         )
+    }
+
+    /** 보낸 이름이 있으면 그 이름, 없으면 파일 이름에서 .pdf 를 뺀 값 (최대 80자) */
+    private fun resolveTitle(title: String?, filename: String?): String {
+        val given = title?.trim().orEmpty()
+        if (given.length > TITLE_MAX) throw ApiException(ErrorCode.VALIDATION_FAILED, "title: 이름은 ${TITLE_MAX}자까지예요.")
+        if (given.isNotEmpty()) return given
+        val fromFile = filename.orEmpty().substringAfterLast('/').substringAfterLast('\\')
+            .replace(Regex("(?i)\\.pdf$"), "").trim().take(TITLE_MAX)
+        return fromFile.ifEmpty { "자료" }
     }
 
     private fun isPdf(bytes: ByteArray): Boolean =

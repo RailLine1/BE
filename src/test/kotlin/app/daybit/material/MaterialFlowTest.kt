@@ -78,7 +78,7 @@ class MaterialFlowTest(
 
         upload(admin, mid, "hello".toByteArray()).andExpect { status { isBadRequest() } }
         upload(admin, mid, samplePdf("a"), consent = false).andExpect { status { isBadRequest() } }
-        upload(admin, mid, samplePdf("a"), title = "  ").andExpect { status { isBadRequest() } }
+        // 이름이 비면 파일 이름을 써요 (아래 이름 테스트 참고)
 
         val broken = upload(admin, mid, "%PDF-1.7 broken".toByteArray()).andExpect { status { isCreated() } }.id()
         assertThat(waitStatus(broken)).isEqualTo("failed")
@@ -232,13 +232,51 @@ class MaterialFlowTest(
         assertThat(state(finalEnded)).isEqualTo("ended")
     }
 
+    @Test
+    fun `이름을 비우면 파일 이름을 쓰고, 관리자 · 공동 관리자는 이름을 바꿀 수 있어요`() {
+        val admin = f.newUser()
+        val member = f.newUser()
+        val stranger = f.newUser()
+        val (courseId, _) = f.createCourse(admin)
+        f.join(courseId, member)
+        val mid = folderId(admin, courseId, "mid")
+
+        val fileId = upload(admin, mid, samplePdf("named by file"), title = null, filename = "3주차 프로세스.PDF").id()
+        waitStatus(fileId)
+        upload(admin, mid, samplePdf("x"), title = "가".repeat(81)).andExpect { status { isBadRequest() } }
+        mvc.get("/api/v1/folders/$mid/files") { header("Authorization", admin.bearer) }
+            .andExpect { jsonPath("$[0].title") { value("3주차 프로세스") } }
+
+        renameFile(admin, fileId, "  3주차 · 스케줄링  ").andExpect {
+            status { isOk() }
+            jsonPath("$.title") { value("3주차 · 스케줄링") }
+            jsonPath("$.status") { value("ready") }
+        }
+        renameFile(member, fileId, "멤버는 못 바꿔요").andExpect { status { isForbidden() } }
+        renameFile(stranger, fileId, "남의 과목").andExpect { status { isNotFound() } }
+        renameFile(admin, fileId, "   ").andExpect { status { isBadRequest() } }
+        // 원본은 그대로라 보기 URL 도 그대로 열려요
+        mvc.get("/api/v1/files/$fileId") { header("Authorization", admin.bearer) }.andExpect { status { isOk() } }
+    }
+
     // ---------- 도우미 ----------
 
-    private fun upload(user: TestUser, folderId: Long, bytes: ByteArray, title: String = "강의 자료", consent: Boolean = true) =
+    private fun renameFile(user: TestUser, fileId: Long, title: String) =
+        mvc.patch("/api/v1/files/$fileId") {
+            header("Authorization", user.bearer)
+            contentType = MediaType.APPLICATION_JSON
+            content = json.writeValueAsString(mapOf("title" to title))
+        }
+
+    /** title 이 null 이면 보내지 않아요 (파일 이름을 쓰는 경우) */
+    private fun upload(
+        user: TestUser, folderId: Long, bytes: ByteArray, title: String? = "강의 자료", consent: Boolean = true,
+        filename: String = "lecture.pdf",
+    ) =
         mvc.multipart("/api/v1/folders/$folderId/files") {
             header("Authorization", user.bearer)
-            file(MockMultipartFile("file", "lecture.pdf", "application/pdf", bytes))
-            param("title", title)
+            file(MockMultipartFile("file", filename, "application/pdf", bytes))
+            title?.let { param("title", it) }
             param("consent", consent.toString())
         }
 

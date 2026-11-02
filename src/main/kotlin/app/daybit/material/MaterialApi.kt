@@ -40,6 +40,10 @@ data class FolderRequest(
     @field:NotBlank @field:Size(max = 30) val name: String,
 )
 
+data class FileTitleRequest(
+    @field:NotBlank @field:Size(max = 80) val title: String,
+)
+
 data class FileItem(
     val fileId: Long,
     val title: String,
@@ -94,14 +98,14 @@ class MaterialController(private val service: MaterialService) {
     fun files(@LoginUser userId: Long, @PathVariable folderId: Long): List<FileItem> =
         service.files(userId, folderId)
 
-    @Operation(summary = "PDF 업로드 (P-MAT-02, 03)", description = "PDF만, 50MB 이하(초과 시 413 FILE_TOO_LARGE). consent=true 필수. 응답은 status=processing 이고, 텍스트 추출이 끝나면 ready · failed 로 바뀌어요")
+    @Operation(summary = "PDF 업로드 (P-MAT-02, 03)", description = "PDF만, 50MB 이하(초과 시 413 FILE_TOO_LARGE). consent=true 필수. title 을 비우면 파일 이름(.pdf 제외, 80자까지)을 써요. 응답은 status=processing 이고, 텍스트 추출이 끝나면 ready · failed 로 바뀌어요")
     @PostMapping("/folders/{folderId}/files", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @ResponseStatus(HttpStatus.CREATED)
     fun upload(
         @LoginUser userId: Long,
         @PathVariable folderId: Long,
         @RequestPart file: MultipartFile,
-        @RequestParam title: String,
+        @RequestParam(required = false) title: String?,
         @RequestParam consent: Boolean,
     ): UploadResponse = service.upload(userId, folderId, file, title, consent)
 
@@ -109,6 +113,11 @@ class MaterialController(private val service: MaterialService) {
     @GetMapping("/files/{fileId}")
     fun view(@LoginUser userId: Long, @PathVariable fileId: Long): FileViewResponse =
         service.view(userId, fileId)
+
+    @Operation(summary = "파일 이름 변경", description = "관리자 · 공동 관리자만. 원본과 추출 텍스트는 그대로예요")
+    @PatchMapping("/files/{fileId}")
+    fun renameFile(@LoginUser userId: Long, @PathVariable fileId: Long, @Valid @RequestBody req: FileTitleRequest): FileItem =
+        service.renameFile(userId, fileId, req.title)
 
     @Operation(summary = "파일 삭제")
     @DeleteMapping("/files/{fileId}")

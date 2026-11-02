@@ -128,8 +128,9 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 | ✅ | PATCH | `/folders/{folderId}` | 🅰🅲 | 이름 변경 (`mid` · `final`은 400) | P-MAT-01 |
 | ✅ | DELETE | `/folders/{folderId}` | 🅰🅲 | 삭제 (`mid` · `final`은 400) | |
 | ✅ | GET | `/folders/{folderId}/files` | 🅰🅲🅼 | 파일 목록. 멤버는 `ready`만 | P-MAT-04 |
-| ✅ | POST | `/folders/{folderId}/files` | 🅰🅲 | 업로드 (multipart `file`, `title`, `consent=true`) → `processing`. PDF만, 50MB 이하 | P-MAT-02, 03, P-BIT-18 |
+| ✅ | POST | `/folders/{folderId}/files` | 🅰🅲 | 업로드 (multipart `file`, `title`(생략 시 파일 이름), `consent=true`) → `processing`. PDF만, 50MB 이하 | P-MAT-02, 03, P-BIT-18 |
 | ✅ | GET | `/files/{fileId}` | 🅰🅲🅼 | 보기용 임시 URL(10분). 원본 열람 off면 멤버 403, 멤버에게 `ready`가 아닌 파일은 404 | P-MAT-05 |
+| ✅ | PATCH | `/files/{fileId}` | 🅰🅲 | 이름 변경 `{title}` | |
 | ✅ | DELETE | `/files/{fileId}` | 🅰🅲 | 삭제 | |
 
 업로드 응답은 `processing`입니다. 서버가 페이지별 텍스트를 추출하면 `ready`, 읽을 수 없는 PDF면 `failed`가 됩니다. 앱은 파일 목록을 다시 불러 상태를 확인합니다. 폴더를 지우면 안의 파일과 원본도 함께 지워집니다.
