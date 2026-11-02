@@ -55,6 +55,7 @@ Daybit 백엔드 API의 공통 규칙, 오류 코드, 엔드포인트 목록입�
 | 409 | `ALREADY_ATTEMPTED` | 같은 Bit 두 번째 제출 (P-BIT-09) |
 | 409 | `BIT_CLOSED` | 마감된 Bit 시작 · 제출 (P-BIT-05) |
 | 409 | `COURSE_ENDED` | 종료된 과목 구독 (P-EXP-04) |
+| 409 | `WORKSPACE_NOT_LINKED` | AI 작업 공간 1단계(GitHub 연결) 전에 2 · 3단계 요청 |
 | 413 | `FILE_TOO_LARGE` | 업로드 파일이 50MB 초과 (P-MAT-02) |
 | 500 | `INTERNAL_ERROR` | 서버 오류 |
 | 501 | `NOT_IMPLEMENTED` | 아직 구현하지 않은 API |
@@ -189,12 +190,21 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 
 | 상태 | 메서드 | 경로 | 권한 | 요약 | 정책 |
 |---|---|---|---|---|---|
-| ⬜ | GET | `/me/workspace` | 로그인 | 저장소 연결 상태, AI별 상태(`none` · `ready` · `expired`) | P-AI-07 |
-| ⬜ | POST | `/me/workspace/github` | 로그인 | 1단계: GitHub 권한 요청 URL → 비공개 저장소 · 워크플로 생성 | P-AI-08 |
-| ⬜ | POST | `/me/workspace/{ai}/setup` | 로그인 | 2단계: Codespace 열기 URL (`daybit-setup {ai}` 실행) | P-AI-08 |
-| ⬜ | POST | `/me/workspace/{ai}/test` | 로그인 | 3단계: 샘플 3문항 워크플로 실행 → 완료 시 `ready` | P-AI-08 |
+| ✅ | GET | `/me/workspace` | 로그인 | 저장소 연결 상태, AI별 상태(`none` · `ready` · `expired`), `testing`, `lastError` | P-AI-07 |
+| ✅ | POST | `/me/workspace/github` | 로그인 | 1단계: `{redirect}` → GitHub 권한 요청 `{url}`. 허용하면 내 계정에 비공개 저장소 `daybit-workspace` 생성, `redirect?workspace=linked` | P-AI-08 |
+| ✅ | POST | `/me/workspace/{ai}/setup` | 로그인 | 2단계: Codespace 주소 `{url, command}`. 1단계 전이면 409 | P-AI-08 |
+| ✅ | POST | `/me/workspace/{ai}/test` | 로그인 | 3단계: 샘플 3문항 워크플로 실행. 결과는 `GET /me/workspace`로 확인 → 성공 시 `ready` | P-AI-08 |
 
-워크플로가 생성한 문제를 받는 `POST /internal/workspace/results`(저장소별 서명으로 검증, P-AI-09)는 아직 컨트롤러가 없습니다.
+- 1단계 실패 시 `redirect`에 붙는 `error`: `GITHUB_CANCELLED`, `GITHUB_FAILED`, `GITHUB_ALREADY_LINKED`, `WORKSPACE_REPO_FAILED`(템플릿 복사 실패)
+- 3단계는 바로 돌아오고(`testing: true`) 워크플로가 끝나면 `ready`가 되거나 `lastError`가 채워집니다. 앱은 몇 초마다 `GET /me/workspace`를 다시 부릅니다.
+- `ready`가 된 AI만 과목 환경설정의 퀴즈 출처로 고를 수 있습니다(P-AI-09). 그 과목은 자료가 `ready`가 될 때마다 작업 공간 워크플로가 문제를 만듭니다. 실패 · 시간 초과(30분)면 즉시 Gemini로 전환하고 관리자 · 공동 관리자에게 알립니다(P-BIT-15). 그때 AI 상태는 `expired`가 됩니다.
+
+워크플로가 부르는 내부 API(앱은 쓰지 않음, Swagger에 없음). 인증은 GitHub Actions OIDC 토큰(`audience: daybit`)이고, 토큰의 저장소가 작업 주인의 작업 공간이어야 합니다(결정 D11).
+
+| 메서드 | 경로 | 내용 |
+|---|---|---|
+| GET | `/internal/workspace/jobs/{jobId}` | 작업 내용: `kind`(`test` · `generate`), `ai`, `count`, `system`(출제 규칙), `schema`(응답 스키마), `prompt`(자료 본문) |
+| POST | `/internal/workspace/jobs/{jobId}/result` | `{"questions":[...]}`(스키마와 같은 형식) 또는 `{"error":"..."}` → 204 |
 
 ## MCP 서버
 

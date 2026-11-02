@@ -84,3 +84,13 @@ PDF 텍스트 추출은 업로드 트랜잭션이 커밋된 뒤 별도 스레드
 - `search`는 키워드 검색(`ilike`)으로 시작한다. 의미 검색(pgvector)은 하지 않는다.
 - 원본 열람 off일 때 `read_pages`를 제한할지(P-MAT-06 [미정])는 정책서 기본값대로 제한하지 않는다.
 - `get_page_image`는 페이지 이미지를 미리 저장하지 않고 요청 때 원본 PDF에서 PNG로 그린다. `file_pages.image_key`는 쓰지 않는다.
+
+## D11. AI 작업 공간 결과는 저장소별 서명 키 대신 GitHub OIDC로 검증한다
+
+P-AI-09는 "결과는 저장소별 서명 키로 검증"이었다. 서명 키를 쓰려면 서버가 키를 만들어 관리자 저장소 Secret에 넣어야 하는데, GitHub Secret API는 저장소 공개키로 봉인(libsodium sealed box)해서 보내야 해서 구현과 검증 부담이 크다. 대신 GitHub Actions가 실행마다 발급하는 **OIDC 토큰**(GitHub가 서명한 JWT, `repository` 클레임 포함)을 쓴다. 워크플로는 `audience: daybit`로 토큰을 받아 Bearer로 보내고, 서버는 GitHub 공개키(JWKS)로 서명 · 발급자 · audience를 확인한 뒤 `repository`가 작업 주인의 작업 공간 저장소인지 본다. 저장소마다 비밀값을 나눠 줄 필요가 없고, 토큰은 몇 분 안에 만료된다.
+
+- 관리자 GitHub OAuth 토큰(scope: `repo`, `workflow`)은 서버가 실행 요청을 보내기 위해 저장한다. JWT 비밀값에서 만든 키로 AES-GCM 암호화한다. 구독 토큰(Claude · ChatGPT)은 저장소 Secret에만 있고 서버는 모른다(P-AI-09 그대로).
+- 저장소는 템플릿 저장소(`RailLine1/AI`, `DAYBIT_WORKSPACE_TEMPLATE`)를 복사해 만든다. 템플릿은 공개 + "Template repository" 설정이어야 다른 사용자가 복사할 수 있다.
+- 워크플로는 작업 내용(출제 규칙 · 스키마 · 자료 본문)을 서버에서 받아 간다. 출제 규칙은 Gemini와 같은 `resources/prompts` 파일이다(#29). 자료 본문을 실행 입력으로 넘기지 않는 이유는 `workflow_dispatch` 입력 크기 제한 때문이다.
+- 실패 · 만료 · 30분 시간 초과면 즉시 Gemini로 전환하고 관리자 · 공동 관리자에게 알리며(P-BIT-15), 그 자료를 Gemini로 다시 만든다. AI 상태는 `expired`가 되고, 관리자가 3단계 테스트를 다시 통과하면 `ready`로 돌아온다.
+- 서버가 GitHub에서 접근 가능한 공개 주소여야 워크플로가 작업을 받아 갈 수 있다. 로컬 서버로는 끝까지 확인할 수 없다.

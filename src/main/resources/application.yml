@@ -63,6 +63,8 @@ daybit:
     client-secret: ${DAYBIT_GITHUB_CLIENT_SECRET:}
     # 로그인 뒤 일회용 code 를 받을 앱 주소 패턴 (쉼표 구분, * 사용 가능)
     allowed-redirects: ${DAYBIT_GITHUB_REDIRECTS:daybit://*,exp://*,http://localhost:*}
+  workspace:
+    template-repo: ${DAYBIT_WORKSPACE_TEMPLATE:RailLine1/AI}   # 관리자 저장소로 복사할 템플릿 (공개 + Template repository 여야 해요)
   firebase:
     credentials: ${DAYBIT_FIREBASE_CREDENTIALS:}   # 서비스 계정 JSON(원문 또는 base64). 비우면 푸시를 보내지 않아요
 

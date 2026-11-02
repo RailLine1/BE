@@ -83,6 +83,7 @@ Postgres 서비스가 제공하는 **`DATABASE_URL`은 넣지 않습니다.** `p
 |---|---|---|
 | `DAYBIT_GITHUB_CLIENT_ID` | OAuth 앱 Client ID | GitHub › Settings › Developer settings › OAuth Apps에서 만듭니다. **Authorization callback URL**은 `https://<BE 도메인>/api/v1/auth/github/callback`입니다 |
 | `DAYBIT_GITHUB_CLIENT_SECRET` | OAuth 앱 Client Secret | |
+| `DAYBIT_WORKSPACE_TEMPLATE` | 기본값 `RailLine1/AI` | AI 작업 공간 저장소를 만들 때 복사할 템플릿입니다. 이 저장소는 공개이고 Settings › General › **Template repository**가 켜져 있어야 합니다 |
 | `DAYBIT_GITHUB_REDIRECTS` | 기본값 `daybit://*,exp://*,http://localhost:*` | 로그인 뒤 돌아갈 앱 주소 패턴입니다. 웹 프론트 주소(예: `https://*.expo.app/*`)를 쓰면 추가합니다 |
 
 ## 배포 후 확인

@@ -121,17 +121,22 @@ class QuestionBankFlowTest(
     }
 
     @Test
-    fun `퀴즈 출처가 작업 공간이거나 Gemini 키가 없으면 만들지 않아요`() {
+    fun `작업 공간 AI가 준비 안 됐으면 Gemini 로 전환해 만들고, Gemini 키가 없으면 만들지 않아요`() {
         val admin = f.newUser()
         val (workspaceCourse, _) = f.createCourse(admin)
         jdbc.sql("update courses set quiz_source_type = 'workspace', quiz_source_user_id = :u, quiz_source_ai = 'codex' where id = :c")
             .param("u", admin.id).param("c", workspaceCourse).update()
         fake.respond = { listOf(q()) }
-        val first = f.uploadReady(admin, workspaceCourse, "Round robin gives each process a time quantum.")
-        assertThat(bank.generateForFile(first)).isZero()
+        f.uploadReady(admin, workspaceCourse, "Round robin gives each process a time quantum.")
+        waitQuestions(workspaceCourse, 1)
+        // P-BIT-15: 출처가 Gemini 로 바뀌고 관리자에게 알려요
+        val source = jdbc.sql("select quiz_source_type from courses where id = :c").param("c", workspaceCourse).query(String::class.java).single()
+        assertThat(source).isEqualTo("default")
+        assertThat(f.notificationTypes(admin)).contains("quiz_source_fallback")
 
         val (course, _) = f.createCourse(admin)
         fake.enabled = false
+        fake.requests.clear()
         val second = f.uploadReady(admin, course, "Round robin gives each process a time quantum.")
         assertThat(bank.generateForFile(second)).isZero()
         assertThat(fake.requests).isEmpty()

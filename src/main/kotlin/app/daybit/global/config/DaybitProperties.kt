@@ -12,6 +12,7 @@ data class DaybitProperties(
     val gemini: Gemini = Gemini(),
     val firebase: Firebase = Firebase(),
     val github: Github = Github(),
+    val workspace: Workspace = Workspace(),
 ) {
     data class Jwt(
         val secret: String,
@@ -58,6 +59,18 @@ data class DaybitProperties(
         val clientId: String = "",
         val clientSecret: String = "",
         val allowedRedirects: List<String> = listOf("daybit://*", "exp://*", "http://localhost:*"),
+    )
+
+    /**
+     * AI 작업 공간 (#10, 결정 D11). 관리자 GitHub 에 templateRepo 를 복사해 repoName 저장소를 만들고,
+     * workflow 를 실행해 문제를 받아요. 워크플로의 OIDC 토큰 audience 는 oidcAudience 여야 해요.
+     */
+    data class Workspace(
+        val templateRepo: String = "RailLine1/AI",
+        val repoName: String = "daybit-workspace",
+        val workflow: String = "daybit-generate.yml",
+        val oidcAudience: String = "daybit",
+        val jobTimeout: java.time.Duration = java.time.Duration.ofMinutes(30),
     )
 
     /** FCM 발송용 서비스 계정 JSON(원문 또는 base64). 비어 있으면 푸시를 보내지 않아요 */
