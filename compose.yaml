@@ -1,0 +1,18 @@
+# 로컬 개발용 Postgres.
+# `./gradlew bootRun` 을 실행하면 Spring Boot 가 이 파일을 읽어 컨테이너를 자동으로 띄워요.
+# 직접 띄우려면: docker compose up -d
+services:
+  postgres:
+    image: 'postgres:17'
+    environment:
+      - 'POSTGRES_DB=daybit'
+      - 'POSTGRES_USER=daybit'
+      - 'POSTGRES_PASSWORD=daybit'
+      - 'TZ=Asia/Seoul'
+    ports:
+      - '5433:5432'   # 5432 는 Windows 로컬 PostgreSQL 서비스와 겹쳐서 5433 사용
+    volumes:
+      - 'daybit-pg:/var/lib/postgresql/data'
+
+volumes:
+  daybit-pg:
