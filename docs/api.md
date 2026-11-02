@@ -65,15 +65,15 @@ Daybit 백엔드 API의 공통 규칙, 오류 코드, 엔드포인트 목록입�
 
 | 상태 | 메서드 | 경로 | 권한 | 요약 | 정책 |
 |---|---|---|---|---|---|
-| ⬜ | POST | `/auth/signup` | 🔓 | 아이디 가입 | P-ACC-02~04 |
-| ⬜ | POST | `/auth/login` | 🔓 | 로그인 | |
-| ⬜ | POST | `/auth/refresh` | 🔓 | 토큰 갱신 (리프레시 토큰 1회용) | |
-| ⬜ | POST | `/auth/logout` | 🔓 | 리프레시 토큰 폐기 | |
+| ✅ | POST | `/auth/signup` | 🔓 | 아이디 가입 | P-ACC-02~04 |
+| ✅ | POST | `/auth/login` | 🔓 | 로그인 | |
+| ✅ | POST | `/auth/refresh` | 🔓 | 토큰 갱신 (리프레시 토큰 1회용) | |
+| ✅ | POST | `/auth/logout` | 🔓 | 리프레시 토큰 폐기 | |
 | ⬜ | GET | `/auth/github/start` | 🔓 | GitHub 로그인 시작 (`?redirect=` 앱 딥링크, `?link=1` 기존 계정 연결) | P-ACC-06 |
 | ⬜ | POST | `/auth/github/exchange` | 🔓 | 딥링크로 받은 일회용 `code` → 토큰. 신규면 `needsNickname` | P-ACC-04 |
-| ⬜ | GET | `/me` | 로그인 | 내 정보 (구독 · 관리 과목 수 포함) | |
-| ⬜ | PATCH | `/me` | 로그인 | 닉네임 변경 | P-ACC-03 |
-| ⬜ | POST | `/me/onboarding/complete` | 로그인 | 서비스 소개 확인 표시 | P-ACC-05 |
+| ✅ | GET | `/me` | 로그인 | 내 정보 (구독 · 관리 과목 수 포함) | |
+| ✅ | PATCH | `/me` | 로그인 | 닉네임 변경 | P-ACC-03 |
+| ✅ | POST | `/me/onboarding/complete` | 로그인 | 서비스 소개 확인 표시 | P-ACC-05 |
 | ⬜ | GET | `/me/welcome` | 로그인 | 환영 화면 (새 자료, 남은 Bit, 연속 일수) | P-ACC-05 |
 | ⬜ | GET | `/me/streak?weeks=15` | 로그인 | 전체 학습 기록 격자 | P-BIT-13 |
 
