@@ -83,13 +83,13 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 
 | 상태 | 메서드 | 경로 | 권한 | 요약 | 정책 |
 |---|---|---|---|---|---|
-| ⬜ | POST | `/courses` | 로그인 | 과목 만들기 → `{id, code}`. 기본 폴더 `mid` · `final` 생성 | P-COURSE-01, 02, P-MAT-01 |
-| ⬜ | GET | `/courses/mine?state=active\|ended` | 로그인 | 강의실 타일 / 지난 강의. 가입 대기 제외 | P-COURSE-05 |
-| ⬜ | GET | `/courses/{courseId}` | 🅰🅲🅼 | 과목 상세 (`state` 포함) | |
-| ⬜ | GET | `/courses/{courseId}/settings` | 🅰🅲🅼 | 환경설정. 멤버는 `code` · `role` · `notify`만 | P-ROLE-01 |
-| ⬜ | PATCH | `/courses/{courseId}` | 🅰🅲 | 환경설정 변경. 보낸 항목만 바뀜. 비공개 → 공개면 대기 요청 자동 승인 | P-COURSE-04, P-BIT-03, 14 |
-| ⬜ | POST | `/courses/{courseId}/leave` | 🅰🅲🅼 | 탈퇴 → `left` · `promoted`(+`newAdmin`) · `deleted` | P-ROLE-03, 04 |
-| ⬜ | PATCH | `/courses/{courseId}/subscription` | 🅰🅲🅼 | 과목 알림 켜기·끄기 | P-NOTI-02 |
+| ✅ | POST | `/courses` | 로그인 | 과목 만들기 → `{id, code}`. 기본 폴더 `mid` · `final` 생성 | P-COURSE-01, 02, P-MAT-01 |
+| ✅ | GET | `/courses/mine?state=active\|ended` | 로그인 | 강의실 타일 / 지난 강의. 가입 대기 제외 | P-COURSE-05 |
+| ✅ | GET | `/courses/{courseId}` | 🅰🅲🅼 | 과목 상세 (`state` 포함) | |
+| ✅ | GET | `/courses/{courseId}/settings` | 🅰🅲🅼 | 환경설정. 멤버는 `code` · `role` · `notify`만 | P-ROLE-01 |
+| ✅ | PATCH | `/courses/{courseId}` | 🅰🅲 | 환경설정 변경. 보낸 항목만 바뀜. 비공개 → 공개면 대기 요청 자동 승인 | P-COURSE-04, P-BIT-03, 14 |
+| ✅ | POST | `/courses/{courseId}/leave` | 🅰🅲🅼 | 탈퇴 → `left` · `promoted`(+`newAdmin`) · `deleted` | P-ROLE-03, 04 |
+| ✅ | PATCH | `/courses/{courseId}/subscription` | 🅰🅲🅼 | 과목 알림 켜기·끄기 | P-NOTI-02 |
 
 `quizSource`는 `{ "type": "default" }` 또는 `{ "type": "workspace", "ai": "claudecode" | "codex" }`입니다. `PATCH`에서 값을 보내지 않은 항목은 바뀌지 않으며, 한 번 넣은 시험일을 비우는 방법은 아직 없습니다.
 
@@ -108,13 +108,13 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 
 | 상태 | 메서드 | 경로 | 권한 | 요약 | 정책 |
 |---|---|---|---|---|---|
-| ⬜ | GET | `/courses/{courseId}/members` | 🅰🅲 | 관리자 → 공동 관리자(지정 순) → 멤버(가입 순) | P-ROLE-02 |
-| ⬜ | PATCH | `/courses/{courseId}/members/{userId}` | 🅰 | 멤버 ↔ 공동 관리자 | P-ROLE-02 |
-| ⬜ | DELETE | `/courses/{courseId}/members/{userId}` | 🅰🅲 | 추방. 공동 관리자는 멤버만, 본인은 불가 | P-ROLE-05, 06 |
-| ⬜ | GET | `/courses/{courseId}/join-requests` | 🅰🅲 | 대기 중인 요청 (요청 순) | |
-| ⬜ | POST | `/courses/{courseId}/join-requests/{requestId}/approve` | 🅰🅲 | 승인 → 요청자 알림 | P-NOTI-03 |
-| ⬜ | POST | `/courses/{courseId}/join-requests/{requestId}/reject` | 🅰🅲 | 거절 | |
-| ⬜ | POST | `/courses/{courseId}/join-requests/approve-all` | 🅰🅲 | 모두 승인 → `{approved}` | |
+| ✅ | GET | `/courses/{courseId}/members` | 🅰🅲 | 관리자 → 공동 관리자(지정 순) → 멤버(가입 순) | P-ROLE-02 |
+| ✅ | PATCH | `/courses/{courseId}/members/{userId}` | 🅰 | 멤버 ↔ 공동 관리자 | P-ROLE-02 |
+| ✅ | DELETE | `/courses/{courseId}/members/{userId}` | 🅰🅲 | 추방. 공동 관리자는 멤버만, 본인은 불가 | P-ROLE-05, 06 |
+| ✅ | GET | `/courses/{courseId}/join-requests` | 🅰🅲 | 대기 중인 요청 (요청 순) | |
+| ✅ | POST | `/courses/{courseId}/join-requests/{requestId}/approve` | 🅰🅲 | 승인 → 요청자 알림 | P-NOTI-03 |
+| ✅ | POST | `/courses/{courseId}/join-requests/{requestId}/reject` | 🅰🅲 | 거절 | |
+| ✅ | POST | `/courses/{courseId}/join-requests/approve-all` | 🅰🅲 | 모두 승인 → `{approved}` | |
 
 `requestId`는 요청한 사람의 `userId`입니다. 이미 처리된 요청은 404입니다.
 
