@@ -1,12 +1,12 @@
 package app.daybit.auth
 
-import app.daybit.global.error.ApiException
-import app.daybit.global.error.ErrorCode
+import io.swagger.v3.oas.annotations.Hidden
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.security.SecurityRequirements
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
+import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -14,12 +14,13 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
+import java.net.URI
 
 @Tag(name = "1. 인증")
 @SecurityRequirements // 🔓 로그인 불필요
 @RestController
 @RequestMapping("/api/v1/auth")
-class AuthController(private val auth: AuthService) {
+class AuthController(private val auth: AuthService, private val github: GithubAuthService) {
 
     @Operation(summary = "아이디 가입 (P-ACC-02~04)")
     @PostMapping("/signup")
@@ -40,16 +41,27 @@ class AuthController(private val auth: AuthService) {
     fun logout(@Valid @RequestBody req: RefreshRequest) = auth.logout(req)
 
     @Operation(
-        summary = "GitHub 로그인 시작 (P-ACC-06) · 준비 중",
-        description = "앱은 외부 브라우저로 이 주소를 열고, 로그인 후 `redirect` 딥링크로 일회용 code 를 받아요.",
+        summary = "GitHub 로그인 시작 (P-ACC-06)",
+        description = "앱은 외부 브라우저로 이 주소를 열어요. GitHub 로그인이 끝나면 `redirect` 로 `?code=일회용코드` " +
+            "(실패하면 `?error=GITHUB_CANCELLED | GITHUB_FAILED`)가 붙어 돌아와요. redirect 가 허용 목록에 없으면 400",
     )
     @GetMapping("/github/start")
-    fun githubStart(
-        @RequestParam redirect: String,
-        @RequestParam(required = false, defaultValue = "false") link: Boolean,
-    ): Nothing = throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+    fun githubStart(@RequestParam redirect: String): ResponseEntity<Void> =
+        ResponseEntity.status(HttpStatus.FOUND).location(URI.create(github.authorizeUrl(redirect))).build()
 
-    @Operation(summary = "GitHub 일회용 code → 토큰 교환 · 준비 중", description = "신규 사용자면 `needsNickname` 이 true 예요.")
+    @Hidden
+    @GetMapping("/github/callback")
+    fun githubCallback(
+        @RequestParam(required = false) code: String?,
+        @RequestParam state: String,
+        @RequestParam(required = false) error: String?,
+    ): ResponseEntity<Void> =
+        ResponseEntity.status(HttpStatus.FOUND).location(URI.create(github.callback(code, state, error))).build()
+
+    @Operation(
+        summary = "GitHub 일회용 code → 토큰 교환",
+        description = "code 는 1분 안에 한 번만 쓸 수 있어요. 아니면 401 GITHUB_CODE_INVALID. 신규 사용자면 `needsNickname` 이 true 예요.",
+    )
     @PostMapping("/github/exchange")
-    fun githubExchange(@RequestParam code: String): Nothing = throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+    fun githubExchange(@Valid @RequestBody req: GithubExchangeRequest): GithubAuthResponse = github.exchange(req.code)
 }

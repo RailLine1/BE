@@ -45,3 +45,25 @@ data class AuthResponse(
     val isFirstLogin: Boolean,
     val tokens: TokenPair,
 )
+
+data class GithubExchangeRequest(@field:NotBlank val code: String)
+
+data class GithubAuthResponse(
+    val user: AuthUser,
+    @field:Schema(description = "true 면 서비스 소개(onboarding)를 보여줘요 (P-ACC-05)")
+    val isFirstLogin: Boolean,
+    @field:Schema(description = "GitHub 로 처음 가입한 사용자. 임시 닉네임이라 닉네임 입력(PATCH /me)을 거쳐요 (P-ACC-04)")
+    val needsNickname: Boolean,
+    val githubLogin: String?,
+    val tokens: TokenPair,
+)
+
+data class GithubLinkRequest(
+    @field:Schema(description = "연결이 끝나면 돌아갈 앱 주소 (예: daybit://github)")
+    @field:NotBlank val redirect: String,
+)
+
+data class GithubLinkResponse(
+    @field:Schema(description = "외부 브라우저로 열 GitHub 인가 주소 (10분 유효)")
+    val url: String,
+)

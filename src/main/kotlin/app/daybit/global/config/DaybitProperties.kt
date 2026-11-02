@@ -11,6 +11,7 @@ data class DaybitProperties(
     val storage: Storage = Storage(),
     val gemini: Gemini = Gemini(),
     val firebase: Firebase = Firebase(),
+    val github: Github = Github(),
 ) {
     data class Jwt(
         val secret: String,
@@ -44,6 +45,16 @@ data class DaybitProperties(
         val bucket: String = "",
         val accessKey: String = "",
         val secretKey: String = "",
+    )
+
+    /**
+     * GitHub OAuth 앱 (결정 D3). allowedRedirects 는 로그인 뒤 돌아갈 앱 주소 패턴이에요(`*` 사용 가능).
+     * 목록에 없는 주소로는 일회용 code 를 보내지 않아요.
+     */
+    data class Github(
+        val clientId: String = "",
+        val clientSecret: String = "",
+        val allowedRedirects: List<String> = listOf("daybit://*", "exp://*", "http://localhost:*"),
     )
 
     /** FCM 발송용 서비스 계정 JSON(원문 또는 base64). 비어 있으면 푸시를 보내지 않아요 */

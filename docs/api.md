@@ -47,9 +47,11 @@ Daybit 백엔드 API의 공통 규칙, 오류 코드, 엔드포인트 목록입�
 | 401 | `UNAUTHORIZED` | 토큰이 없거나 만료됨 → refresh |
 | 401 | `INVALID_CREDENTIALS` | 아이디·비밀번호 불일치 |
 | 401 | `INVALID_REFRESH_TOKEN` | 리프레시 토큰이 없거나 만료·사용됨 → 다시 로그인 |
+| 401 | `GITHUB_CODE_INVALID` | GitHub 일회용 code가 없거나 만료(1분) · 사용됨 → 다시 로그인 |
 | 403 | `FORBIDDEN` | 멤버이지만 권한 부족 |
 | 404 | `NOT_FOUND` | 없는 리소스 또는 멤버가 아닌 과목 |
 | 409 | `NICKNAME_TAKEN`, `LOGIN_ID_TAKEN` | 가입·닉네임 변경 중복 |
+| 409 | `GITHUB_ALREADY_LINKED` | 다른 계정에 연결된 GitHub (연결 흐름에서는 `?error=`로 전달) |
 | 409 | `ALREADY_ATTEMPTED` | 같은 Bit 두 번째 제출 (P-BIT-09) |
 | 409 | `BIT_CLOSED` | 마감된 Bit 시작 · 제출 (P-BIT-05) |
 | 409 | `COURSE_ENDED` | 종료된 과목 구독 (P-EXP-04) |
@@ -71,8 +73,9 @@ Daybit 백엔드 API의 공통 규칙, 오류 코드, 엔드포인트 목록입�
 | ✅ | POST | `/auth/login` | 🔓 | 로그인 | |
 | ✅ | POST | `/auth/refresh` | 🔓 | 토큰 갱신 (리프레시 토큰 1회용) | |
 | ✅ | POST | `/auth/logout` | 🔓 | 리프레시 토큰 폐기 | |
-| ⬜ | GET | `/auth/github/start` | 🔓 | GitHub 로그인 시작 (`?redirect=` 앱 딥링크, `?link=1` 기존 계정 연결) | P-ACC-06 |
-| ⬜ | POST | `/auth/github/exchange` | 🔓 | 딥링크로 받은 일회용 `code` → 토큰. 신규면 `needsNickname` | P-ACC-04 |
+| ✅ | GET | `/auth/github/start?redirect=` | 🔓 | GitHub 로그인 시작. 끝나면 `redirect`로 `?code=` 또는 `?error=` | P-ACC-06 |
+| ✅ | POST | `/auth/github/exchange` | 🔓 | `{code}` 일회용 code(1분, 1회) → 토큰. 신규면 `needsNickname` | P-ACC-04 |
+| ✅ | POST | `/me/github/link` | 로그인 | `{redirect}` → 기존 계정에 GitHub를 연결할 인가 주소 `{url}` | P-ACC-06 |
 | ✅ | GET | `/me` | 로그인 | 내 정보 (구독 · 관리 과목 수 포함) | |
 | ✅ | PATCH | `/me` | 로그인 | 닉네임 변경 | P-ACC-03 |
 | ✅ | POST | `/me/onboarding/complete` | 로그인 | 서비스 소개 확인 표시 | P-ACC-05 |
@@ -80,6 +83,11 @@ Daybit 백엔드 API의 공통 규칙, 오류 코드, 엔드포인트 목록입�
 | ✅ | GET | `/me/streak?weeks=15` | 로그인 | 전체 학습 기록 격자, 연속 · 최장 · 이번 달 일수 | P-BIT-13 |
 
 GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출하는 주소라 앱이 직접 쓰지 않습니다. 흐름은 [결정 기록 D3](decisions.md#d3-github-로그인은-딥링크-일회용-code-교환)에 있습니다.
+
+- 로그인: 외부 브라우저로 `/auth/github/start?redirect=daybit://github`를 엽니다. 돌아온 `?code=`를 `POST /auth/github/exchange`로 바꿉니다. `needsNickname`이 true면 닉네임 입력 화면을 거쳐 `PATCH /me`로 바꿉니다(가입 시 임시 닉네임 `user12345678`).
+- 연결: 로그인한 상태에서 `POST /me/github/link {redirect}`로 받은 `url`을 외부 브라우저로 엽니다. 돌아온 `code`도 같은 exchange로 바꿉니다(같은 계정의 새 토큰).
+- `redirect`는 서버의 허용 목록(`DAYBIT_GITHUB_REDIRECTS`, 기본 `daybit://*`, `exp://*`, `http://localhost:*`)에 맞아야 하며 아니면 400입니다.
+- 실패하면 `redirect`에 `?error=`가 붙습니다: `GITHUB_CANCELLED`(사용자 취소), `GITHUB_FAILED`(GitHub 응답 실패), `GITHUB_ALREADY_LINKED`(다른 계정에 연결된 GitHub).
 
 ### 과목
 

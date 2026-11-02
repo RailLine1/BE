@@ -32,7 +32,9 @@
 
 ## D3. GitHub 로그인은 딥링크 일회용 code 교환
 
-문서의 `/auth/github/callback` 방식은 앱이 OAuth 콜백을 직접 받을 수 없어 쓰지 않는다. `/auth/github/start?redirect=` → GitHub → 서버 콜백 → 앱 딥링크로 일회용 code 전달 → `POST /auth/github/exchange`로 토큰 교환 순서다. 현재 API 형식만 정했고 구현은 이슈 #9에서 한다.
+문서의 `/auth/github/callback` 방식은 앱이 OAuth 콜백을 직접 받을 수 없어 쓰지 않는다. `/auth/github/start?redirect=` → GitHub → 서버 콜백 → 앱 딥링크로 일회용 code 전달 → `POST /auth/github/exchange`로 토큰 교환 순서다. 일회용 code는 해시로 `github_login_codes`(V2)에 저장하고 1분 안에 한 번만 교환할 수 있다. 앱 주소는 서버가 서명한 `state`에 담아 GitHub에 넘기므로 콜백에서 위조된 주소로 code를 보낼 수 없고, 허용 목록에 없는 주소는 시작 단계에서 거부한다.
+
+기존 계정 연결은 문서의 `start?link=1` 대신 `POST /me/github/link`로 바꿨다. 외부 브라우저로 여는 `start`에는 앱의 액세스 토큰을 실을 수 없어서, 로그인한 API가 연결할 계정을 서명한 `state`에 넣은 주소를 만들어 준다. 다른 계정에 이미 연결된 GitHub로 연결하면 `GITHUB_ALREADY_LINKED`다. GitHub로 처음 가입한 사용자는 임시 닉네임(`user` + 숫자 8자리)으로 만들고 `needsNickname`으로 닉네임 입력을 거치게 한다.
 
 ## D4. 푸시는 FCM
 
