@@ -182,8 +182,8 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 
 | 상태 | 메서드 | 경로 | 권한 | 요약 | 정책 |
 |---|---|---|---|---|---|
-| ⬜ | GET | `/me/connector` | 로그인 | 커넥터 주소와 클라이언트별 최근 호출. 주소 전체는 발급 직후 한 번만 노출 | P-AI-02, 04 |
-| ⬜ | POST | `/me/connector/reissue` | 로그인 | 새 주소 발급, 이전 주소 즉시 무효 | P-AI-02 |
+| ✅ | GET | `/me/connector` | 로그인 | 커넥터 주소와 클라이언트별 최근 호출. 처음 부르면 발급하고 전체 주소(`fullUrlShown: true`), 이후는 가린 주소 | P-AI-02, 04 |
+| ✅ | POST | `/me/connector/reissue` | 로그인 | 새 주소 발급, 이전 주소 즉시 무효 | P-AI-02 |
 
 ### AI 작업 공간 **[검증 필요]**
 
@@ -198,19 +198,21 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 
 ## MCP 서버
 
-커넥터는 REST가 아니라 원격 MCP(Streamable HTTP)로 제공하므로 Swagger에 나오지 않습니다. 아직 구현하지 않았습니다.
+커넥터는 REST가 아니라 원격 MCP(Streamable HTTP)로 제공하므로 Swagger에 나오지 않습니다. 구현 방식은 [결정 기록 D10](decisions.md)에 있습니다.
 
-- 주소: `https://<BE 도메인>/mcp/u/{token}`. 인증은 주소 안의 개인 토큰이며, OAuth 방식 추가는 [미정]입니다.
-- 범위: 토큰 주인이 구독 중인 과목의 `ready` 자료만 읽기 전용으로 제공합니다 (P-AI-03).
-- 호출 기록에 클라이언트 종류(Claude, ChatGPT, Claude Code, Codex)를 남겨 등록 상태 표시에 씁니다 (P-AI-04).
+- 주소: `https://<BE 도메인>/mcp/u/{token}`. 인증은 주소 안의 개인 토큰입니다. 틀리거나 재발급으로 무효가 된 토큰은 404입니다(401이면 AI 앱이 OAuth 로그인을 시도하기 때문). OAuth 방식 추가는 [미정]입니다.
+- `POST`로 JSON-RPC 요청 하나를 보내면 JSON 응답 하나를 받습니다. 서버 → 클라이언트 스트림(`GET`, SSE)은 쓰지 않아 405입니다. 메서드는 `initialize`, `ping`, `tools/list`, `tools/call`입니다.
+- 범위: 토큰 주인이 구독 중인 과목의 `ready` 자료만 읽기 전용으로 제공합니다 (P-AI-03). 원본 열람을 꺼도 막지 않습니다 (P-MAT-06).
+- 호출 기록: `initialize`의 `clientInfo.name`(없으면 User-Agent)으로 Claude, ChatGPT, Claude Code, Codex를 구분해 `GET /me/connector`의 등록 상태에 씁니다 (P-AI-04).
+- 범위 밖 자료, 6쪽 이상 읽기 같은 실패는 HTTP 오류가 아니라 도구 결과의 `isError: true`와 안내 문구로 돌려줍니다.
 
 | 도구 | 입력 | 출력 | 용도 |
 |---|---|---|---|
 | `list_courses` | 없음 | `[{courseId, name, code, term}]` | 내 과목 목록 |
 | `list_materials` | `{courseId}` | `[{folder, fileId, title, pages}]` | 폴더와 파일 목록 |
-| `search` | `{courseId, query, limit?=5}` | `[{fileId, title, page, snippet}]` | 관련 구간을 페이지 번호와 함께 반환 |
+| `search` | `{courseId, query, limit?=5}` | `[{fileId, title, page, snippet}]` | 키워드가 들어 있는 페이지. 여러 단어는 공백으로 나누고 많이 맞은 페이지부터. 최대 20 |
 | `read_pages` | `{fileId, pages:[12,13]}` | `[{page, text}]` (한 번에 최대 5쪽) | 필요한 페이지 텍스트만 반환 |
-| `get_page_image` | `{fileId, page}` | 이미지 1장 | 도표 · 수식이 필요할 때만 |
+| `get_page_image` | `{fileId, page}` | PNG 이미지 1장 | 도표 · 수식이 필요할 때만. 원본 PDF에서 그때그때 그림 |
 
 ## 배치 작업
 
