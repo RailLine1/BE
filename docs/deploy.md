@@ -46,6 +46,15 @@ Postgres 서비스가 제공하는 **`DATABASE_URL`은 넣지 않습니다.** `p
 |---|---|---|
 | `DAYBIT_SWAGGER_ENABLED` | `true` | 해커톤 기간에는 켜 둡니다. FE가 배포 서버의 `/v3/api-docs`로 API 클라이언트를 생성합니다 |
 
+### 문제 생성 (Gemini)
+
+값이 없으면 서버는 정상적으로 뜨지만 문제를 만들지 않습니다. 문제가 없으면 Bit도 열리지 않습니다.
+
+| 이름 | 값 | 설명 |
+|---|---|---|
+| `DAYBIT_GEMINI_API_KEY` | Google AI Studio API 키 | https://aistudio.google.com/apikey 에서 발급합니다 |
+| `DAYBIT_GEMINI_MODEL` | 기본값 `gemini-2.5-flash` | 다른 모델을 쓸 때만 넣습니다 |
+
 ### 학습자료 저장 (Cloudflare R2)
 
 값을 넣지 않으면 서버 디스크에 저장합니다. Railway는 재배포할 때 디스크를 비우므로, 올린 자료가 사라지지 않게 하려면 R2를 설정합니다.
@@ -64,7 +73,6 @@ Postgres 서비스가 제공하는 **`DATABASE_URL`은 넣지 않습니다.** `p
 
 | 기능 | 필요한 값 |
 |---|---|
-| 문제 생성 | Gemini API 키 |
 | 푸시 알림 | Firebase 서비스 계정 (iOS는 APNs 키 등록 포함) |
 | GitHub 로그인 | GitHub OAuth 앱 Client ID · Secret |
 
