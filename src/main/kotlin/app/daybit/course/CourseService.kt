@@ -4,6 +4,8 @@ import app.daybit.global.common.CourseRole
 import app.daybit.global.common.WorkspaceAi
 import app.daybit.global.error.ApiException
 import app.daybit.global.error.ErrorCode
+import app.daybit.global.storage.FileStorage
+import app.daybit.global.storage.deleteAfterCommit
 import app.daybit.notification.NotificationType
 import app.daybit.notification.Notifier
 import org.springframework.jdbc.core.simple.JdbcClient
@@ -17,6 +19,7 @@ import java.time.LocalDate
 class CourseService(
     private val jdbc: JdbcClient,
     private val notifier: Notifier,
+    private val storage: FileStorage,
 ) {
 
     // ---------- 만들기 ----------
@@ -225,8 +228,10 @@ class CourseService(
                 .optional().orElse(null)
 
             if (successor == null) {
-                // P-ROLE-04: 공동 관리자가 없으면 과목과 모든 자료를 지워요 (FK cascade)
-                // TODO(materials): R2 에 올린 원본 파일도 함께 지워야 해요.
+                // P-ROLE-04: 공동 관리자가 없으면 과목과 모든 자료를 지워요 (DB 는 FK cascade, 원본은 커밋 뒤에)
+                val keys = jdbc.sql("select storage_key from files where course_id = :courseId").param("courseId", courseId)
+                    .query(String::class.java).list().filterNotNull()
+                storage.deleteAfterCommit(keys)
                 jdbc.sql("delete from courses where id = :courseId").param("courseId", courseId).update()
                 return LeaveResponse(LeaveResult.deleted)
             }

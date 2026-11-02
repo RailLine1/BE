@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.HandlerMethodValidationException
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+import org.springframework.web.multipart.MaxUploadSizeExceededException
+import org.springframework.web.multipart.support.MissingServletRequestPartException
 import org.springframework.web.servlet.resource.NoResourceFoundException
 
 @RestControllerAdvice
@@ -32,8 +34,12 @@ class GlobalExceptionHandler {
         HttpMessageNotReadableException::class,
         MissingServletRequestParameterException::class,
         MethodArgumentTypeMismatchException::class,
+        MissingServletRequestPartException::class,
     )
     fun handleBadRequest(e: Exception): ResponseEntity<ErrorResponse> = respond(ErrorCode.VALIDATION_FAILED)
+
+    @ExceptionHandler(MaxUploadSizeExceededException::class)
+    fun handleTooLarge(e: MaxUploadSizeExceededException): ResponseEntity<ErrorResponse> = respond(ErrorCode.FILE_TOO_LARGE)
 
     @ExceptionHandler(AccessDeniedException::class)
     fun handleDenied(e: AccessDeniedException): ResponseEntity<ErrorResponse> = respond(ErrorCode.FORBIDDEN)

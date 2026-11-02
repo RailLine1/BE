@@ -1,0 +1,3 @@
+daybit:
+  storage:
+    local-dir: build/test-storage

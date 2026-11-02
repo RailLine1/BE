@@ -42,6 +42,11 @@ dependencies {
 	// API 문서 (프론트 Orval이 /v3/api-docs 를 읽어 클라이언트를 생성)
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:$springdocVersion")
 
+	// 학습자료: PDF 페이지별 텍스트 추출 + Cloudflare R2(S3 호환) 저장
+	implementation("org.apache.pdfbox:pdfbox:3.0.8")
+	implementation(platform("software.amazon.awssdk:bom:2.39.6"))
+	implementation("software.amazon.awssdk:s3")
+
 	// Kotlin
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("tools.jackson.module:jackson-module-kotlin")

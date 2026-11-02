@@ -46,13 +46,24 @@ Postgres 서비스가 제공하는 **`DATABASE_URL`은 넣지 않습니다.** `p
 |---|---|---|
 | `DAYBIT_SWAGGER_ENABLED` | `true` | 해커톤 기간에는 켜 둡니다. FE가 배포 서버의 `/v3/api-docs`로 API 클라이언트를 생성합니다 |
 
+### 학습자료 저장 (Cloudflare R2)
+
+값을 넣지 않으면 서버 디스크에 저장합니다. Railway는 재배포할 때 디스크를 비우므로, 올린 자료가 사라지지 않게 하려면 R2를 설정합니다.
+
+| 이름 | 값 | 설명 |
+|---|---|---|
+| `DAYBIT_STORAGE_TYPE` | `s3` | R2를 사용합니다. 기본값은 `local`(디스크)입니다 |
+| `DAYBIT_R2_ENDPOINT` | `https://<계정 ID>.r2.cloudflarestorage.com` | R2 버킷 설정 화면의 S3 API 주소입니다. 끝의 버킷 이름은 뺍니다 |
+| `DAYBIT_R2_BUCKET` | 버킷 이름 | 비공개 버킷을 만듭니다. 공개 접근 설정은 필요 없습니다 |
+| `DAYBIT_R2_ACCESS_KEY` | R2 API 토큰의 Access Key ID | 해당 버킷의 객체 읽기 · 쓰기 권한이 필요합니다 |
+| `DAYBIT_R2_SECRET_KEY` | R2 API 토큰의 Secret Access Key | |
+
 ### 이후 추가될 값
 
 기능을 구현하면서 아래 값을 요청할 예정입니다. 이름과 형식은 요청할 때 함께 전달합니다.
 
 | 기능 | 필요한 값 |
 |---|---|
-| 학습자료 저장 | Cloudflare R2 키 · 버킷 |
 | 문제 생성 | Gemini API 키 |
 | 푸시 알림 | Firebase 서비스 계정 (iOS는 APNs 키 등록 포함) |
 | GitHub 로그인 | GitHub OAuth 앱 Client ID · Secret |
