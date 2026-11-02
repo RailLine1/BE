@@ -153,11 +153,13 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 
 | 상태 | 메서드 | 경로 | 권한 | 요약 | 정책 |
 |---|---|---|---|---|---|
-| ⬜ | GET | `/courses/{courseId}/archive?page&size` | 🅰🅲🅼 | 마감된 Bit 목록 (통계 · 메모 수) | P-ARC-01, 02 |
-| ⬜ | GET | `/archive/{bitId}/memos` | 🅰🅲🅼 | 메모 목록. 작성자 정보 없이 `mine`만 | |
-| ⬜ | POST | `/archive/{bitId}/memos` | 🅰🅲🅼 | 메모 쓰기 | P-ARC-03 |
-| ⬜ | PATCH | `/memos/{memoId}` | 작성자 | 메모 수정 | P-ARC-04 |
-| ⬜ | DELETE | `/memos/{memoId}` | 작성자 · 🅰🅲 | 메모 삭제 | P-ARC-04 |
+| ✅ | GET | `/courses/{courseId}/archive?page&size` | 🅰🅲🅼 | 마감된 Bit 목록 (통계 · 메모 수) | P-ARC-01, 02 |
+| ✅ | GET | `/archive/{bitId}/memos` | 🅰🅲🅼 | 메모 목록. 작성자 정보 없이 `mine`만 | |
+| ✅ | POST | `/archive/{bitId}/memos` | 🅰🅲🅼 | 메모 쓰기 | P-ARC-03 |
+| ✅ | PATCH | `/memos/{memoId}` | 작성자 | 메모 수정 | P-ARC-04 |
+| ✅ | DELETE | `/memos/{memoId}` | 작성자 · 🅰🅲 | 메모 삭제 | P-ARC-04 |
+
+메모는 마감된 Bit(기록에 올라온 문제)에만 남길 수 있습니다. 마감 전 Bit에는 404입니다. 지운 메모는 목록에서 빠지고 다시 수정 · 삭제하면 404입니다.
 
 ### 알림
 

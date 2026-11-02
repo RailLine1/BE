@@ -2,8 +2,6 @@ package app.daybit.archive
 
 import app.daybit.global.common.Evidence
 import app.daybit.global.common.PageResponse
-import app.daybit.global.error.ApiException
-import app.daybit.global.error.ErrorCode
 import app.daybit.global.security.LoginUser
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Schema
@@ -52,36 +50,36 @@ data class MemoRequest(
 @Tag(name = "8. 기록 · 메모")
 @RestController
 @RequestMapping("/api/v1")
-class ArchiveController {
+class ArchiveController(private val service: ArchiveService) {
 
-    @Operation(summary = "기록 목록 (P-ARC-01, 02) · 준비 중")
+    @Operation(summary = "기록 목록 (P-ARC-01, 02)")
     @GetMapping("/courses/{courseId}/archive")
     fun archive(
         @LoginUser userId: Long,
         @PathVariable courseId: Long,
         @RequestParam(defaultValue = "1") @Min(1) page: Int,
         @RequestParam(defaultValue = "10") @Min(1) @Max(50) size: Int,
-    ): PageResponse<ArchivePost> = throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+    ): PageResponse<ArchivePost> = service.archive(userId, courseId, page, size)
 
-    @Operation(summary = "메모 목록 · 준비 중")
+    @Operation(summary = "메모 목록", description = "마감되지 않은 Bit 면 404")
     @GetMapping("/archive/{bitId}/memos")
     fun memos(@LoginUser userId: Long, @PathVariable bitId: Long): List<MemoItem> =
-        throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+        service.memos(userId, bitId)
 
-    @Operation(summary = "메모 남기기 (P-ARC-03) · 준비 중")
+    @Operation(summary = "메모 남기기 (P-ARC-03)")
     @PostMapping("/archive/{bitId}/memos")
     @ResponseStatus(HttpStatus.CREATED)
     fun addMemo(@LoginUser userId: Long, @PathVariable bitId: Long, @Valid @RequestBody req: MemoRequest): MemoItem =
-        throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+        service.add(userId, bitId, req.body)
 
-    @Operation(summary = "메모 수정 (작성자, P-ARC-04) · 준비 중")
+    @Operation(summary = "메모 수정 (작성자, P-ARC-04)")
     @PatchMapping("/memos/{memoId}")
     fun editMemo(@LoginUser userId: Long, @PathVariable memoId: Long, @Valid @RequestBody req: MemoRequest): MemoItem =
-        throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+        service.edit(userId, memoId, req.body)
 
-    @Operation(summary = "메모 삭제 (작성자 · 관리자 · 공동 관리자, P-ARC-04) · 준비 중")
+    @Operation(summary = "메모 삭제 (작성자 · 관리자 · 공동 관리자, P-ARC-04)")
     @DeleteMapping("/memos/{memoId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun deleteMemo(@LoginUser userId: Long, @PathVariable memoId: Long): Unit =
-        throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+    fun deleteMemo(@LoginUser userId: Long, @PathVariable memoId: Long) =
+        service.delete(userId, memoId)
 }
