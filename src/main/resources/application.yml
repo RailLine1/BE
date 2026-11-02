@@ -37,7 +37,6 @@ springdoc:
   swagger-ui:
     path: /swagger-ui
     operations-sorter: alpha
-    tags-sorter: alpha
 
 daybit:
   public-base-url: http://localhost:8080
@@ -54,6 +53,8 @@ spring:
   config:
     activate:
       on-profile: local
+    # 로컬에서는 BE/.env 의 키(Gemini 등)를 읽어요. 파일이 없어도 괜찮아요. 배포 서버는 Railway 변수를 써요.
+    import: optional:file:.env[.properties]
   docker:
     compose:
       lifecycle-management: start-only   # 서버를 꺼도 DB 컨테이너는 유지

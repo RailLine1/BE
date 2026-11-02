@@ -6,6 +6,8 @@ import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.info.Info
 import io.swagger.v3.oas.models.security.SecurityRequirement
 import io.swagger.v3.oas.models.security.SecurityScheme
+import io.swagger.v3.oas.models.tags.Tag
+import org.springdoc.core.customizers.OpenApiCustomizer
 import org.springdoc.core.utils.SpringDocUtils
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -37,6 +39,20 @@ class OpenApiConfig {
             ),
         )
         .addSecurityItem(SecurityRequirement().addList(BEARER))
+
+    /**
+     * Swagger 화면의 태그를 앞 번호 순서(1, 2, … 10, 11)로 보여 줘요. 글자순이면 10 · 11 이 2 앞에 와요.
+     * 태그 이름은 FE Orval 생성 파일 이름에 쓰일 수 있어서 바꾸지 않고 순서만 정해요.
+     */
+    @Bean
+    fun tagOrder(): OpenApiCustomizer = OpenApiCustomizer { api ->
+        val names = api.paths.orEmpty().values
+            .flatMap { it.readOperations() }
+            .flatMap { it.tags.orEmpty() }
+            .distinct()
+            .sortedBy { it.substringBefore('.').toIntOrNull() ?: Int.MAX_VALUE }
+        api.tags = names.map { Tag().name(it) }
+    }
 
     companion object {
         const val BEARER = "bearer"
