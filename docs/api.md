@@ -65,15 +65,15 @@ Daybit 백엔드 API의 공통 규칙, 오류 코드, 엔드포인트 목록입�
 
 | 상태 | 메서드 | 경로 | 권한 | 요약 | 정책 |
 |---|---|---|---|---|---|
-| ⬜ | POST | `/auth/signup` | 🔓 | 아이디 가입 | P-ACC-02~04 |
-| ⬜ | POST | `/auth/login` | 🔓 | 로그인 | |
-| ⬜ | POST | `/auth/refresh` | 🔓 | 토큰 갱신 (리프레시 토큰 1회용) | |
-| ⬜ | POST | `/auth/logout` | 🔓 | 리프레시 토큰 폐기 | |
+| ✅ | POST | `/auth/signup` | 🔓 | 아이디 가입 | P-ACC-02~04 |
+| ✅ | POST | `/auth/login` | 🔓 | 로그인 | |
+| ✅ | POST | `/auth/refresh` | 🔓 | 토큰 갱신 (리프레시 토큰 1회용) | |
+| ✅ | POST | `/auth/logout` | 🔓 | 리프레시 토큰 폐기 | |
 | ⬜ | GET | `/auth/github/start` | 🔓 | GitHub 로그인 시작 (`?redirect=` 앱 딥링크, `?link=1` 기존 계정 연결) | P-ACC-06 |
 | ⬜ | POST | `/auth/github/exchange` | 🔓 | 딥링크로 받은 일회용 `code` → 토큰. 신규면 `needsNickname` | P-ACC-04 |
-| ⬜ | GET | `/me` | 로그인 | 내 정보 (구독 · 관리 과목 수 포함) | |
-| ⬜ | PATCH | `/me` | 로그인 | 닉네임 변경 | P-ACC-03 |
-| ⬜ | POST | `/me/onboarding/complete` | 로그인 | 서비스 소개 확인 표시 | P-ACC-05 |
+| ✅ | GET | `/me` | 로그인 | 내 정보 (구독 · 관리 과목 수 포함) | |
+| ✅ | PATCH | `/me` | 로그인 | 닉네임 변경 | P-ACC-03 |
+| ✅ | POST | `/me/onboarding/complete` | 로그인 | 서비스 소개 확인 표시 | P-ACC-05 |
 | ⬜ | GET | `/me/welcome` | 로그인 | 환영 화면 (새 자료, 남은 Bit, 연속 일수) | P-ACC-05 |
 | ⬜ | GET | `/me/streak?weeks=15` | 로그인 | 전체 학습 기록 격자 | P-BIT-13 |
 
@@ -83,13 +83,13 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 
 | 상태 | 메서드 | 경로 | 권한 | 요약 | 정책 |
 |---|---|---|---|---|---|
-| ⬜ | POST | `/courses` | 로그인 | 과목 만들기 → `{id, code}`. 기본 폴더 `mid` · `final` 생성 | P-COURSE-01, 02, P-MAT-01 |
-| ⬜ | GET | `/courses/mine?state=active\|ended` | 로그인 | 강의실 타일 / 지난 강의. 가입 대기 제외 | P-COURSE-05 |
-| ⬜ | GET | `/courses/{courseId}` | 🅰🅲🅼 | 과목 상세 (`state` 포함) | |
-| ⬜ | GET | `/courses/{courseId}/settings` | 🅰🅲🅼 | 환경설정. 멤버는 `code` · `role` · `notify`만 | P-ROLE-01 |
-| ⬜ | PATCH | `/courses/{courseId}` | 🅰🅲 | 환경설정 변경. 보낸 항목만 바뀜. 비공개 → 공개면 대기 요청 자동 승인 | P-COURSE-04, P-BIT-03, 14 |
-| ⬜ | POST | `/courses/{courseId}/leave` | 🅰🅲🅼 | 탈퇴 → `left` · `promoted`(+`newAdmin`) · `deleted` | P-ROLE-03, 04 |
-| ⬜ | PATCH | `/courses/{courseId}/subscription` | 🅰🅲🅼 | 과목 알림 켜기·끄기 | P-NOTI-02 |
+| ✅ | POST | `/courses` | 로그인 | 과목 만들기 → `{id, code}`. 기본 폴더 `mid` · `final` 생성 | P-COURSE-01, 02, P-MAT-01 |
+| ✅ | GET | `/courses/mine?state=active\|ended` | 로그인 | 강의실 타일 / 지난 강의. 가입 대기 제외 | P-COURSE-05 |
+| ✅ | GET | `/courses/{courseId}` | 🅰🅲🅼 | 과목 상세 (`state` 포함) | |
+| ✅ | GET | `/courses/{courseId}/settings` | 🅰🅲🅼 | 환경설정. 멤버는 `code` · `role` · `notify`만 | P-ROLE-01 |
+| ✅ | PATCH | `/courses/{courseId}` | 🅰🅲 | 환경설정 변경. 보낸 항목만 바뀜. 비공개 → 공개면 대기 요청 자동 승인 | P-COURSE-04, P-BIT-03, 14 |
+| ✅ | POST | `/courses/{courseId}/leave` | 🅰🅲🅼 | 탈퇴 → `left` · `promoted`(+`newAdmin`) · `deleted` | P-ROLE-03, 04 |
+| ✅ | PATCH | `/courses/{courseId}/subscription` | 🅰🅲🅼 | 과목 알림 켜기·끄기 | P-NOTI-02 |
 
 `quizSource`는 `{ "type": "default" }` 또는 `{ "type": "workspace", "ai": "claudecode" | "codex" }`입니다. `PATCH`에서 값을 보내지 않은 항목은 바뀌지 않으며, 한 번 넣은 시험일을 비우는 방법은 아직 없습니다.
 
@@ -97,10 +97,10 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 
 | 상태 | 메서드 | 경로 | 권한 | 요약 | 정책 |
 |---|---|---|---|---|---|
-| ⬜ | GET | `/explore/courses?sort=subscribers\|newest&page&size` | 로그인 | 진행 중인 공개 과목. 구독자 수는 정렬에만 사용 | P-EXP-01, 02, 05 |
-| ⬜ | GET | `/explore/search?q=` | 로그인 | 코드 전체 일치(모든 과목)를 맨 앞에, 이어서 과목명 부분 일치(공개 · 진행 중). 최대 50개 | P-EXP-03 |
-| ⬜ | GET | `/explore/courses/{code}` | 로그인 | 과목 정보 + `myStatus` (`subscribed` · `pending` · `none`) | P-COURSE-06 |
-| ⬜ | POST | `/explore/courses/{code}/subscribe` | 로그인 | 공개 → `subscribed`, 비공개 → `pending`, 종료 → 409. 이미 구독·요청했으면 현재 상태 반환 | P-COURSE-03, P-EXP-04 |
+| ✅ | GET | `/explore/courses?sort=subscribers\|newest&page&size` | 로그인 | 진행 중인 공개 과목. 구독자 수는 정렬에만 사용 | P-EXP-01, 02, 05 |
+| ✅ | GET | `/explore/search?q=` | 로그인 | 코드 전체 일치(모든 과목)를 맨 앞에, 이어서 과목명 부분 일치(공개 · 진행 중). 최대 50개 | P-EXP-03 |
+| ✅ | GET | `/explore/courses/{code}` | 로그인 | 과목 정보 + `myStatus` (`subscribed` · `pending` · `none`) | P-COURSE-06 |
+| ✅ | POST | `/explore/courses/{code}/subscribe` | 로그인 | 공개 → `subscribed`, 비공개 → `pending`, 종료 → 409. 이미 구독·요청했으면 현재 상태 반환 | P-COURSE-03, P-EXP-04 |
 
 과목 코드는 대소문자를 구분하지 않습니다.
 
@@ -108,13 +108,13 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 
 | 상태 | 메서드 | 경로 | 권한 | 요약 | 정책 |
 |---|---|---|---|---|---|
-| ⬜ | GET | `/courses/{courseId}/members` | 🅰🅲 | 관리자 → 공동 관리자(지정 순) → 멤버(가입 순) | P-ROLE-02 |
-| ⬜ | PATCH | `/courses/{courseId}/members/{userId}` | 🅰 | 멤버 ↔ 공동 관리자 | P-ROLE-02 |
-| ⬜ | DELETE | `/courses/{courseId}/members/{userId}` | 🅰🅲 | 추방. 공동 관리자는 멤버만, 본인은 불가 | P-ROLE-05, 06 |
-| ⬜ | GET | `/courses/{courseId}/join-requests` | 🅰🅲 | 대기 중인 요청 (요청 순) | |
-| ⬜ | POST | `/courses/{courseId}/join-requests/{requestId}/approve` | 🅰🅲 | 승인 → 요청자 알림 | P-NOTI-03 |
-| ⬜ | POST | `/courses/{courseId}/join-requests/{requestId}/reject` | 🅰🅲 | 거절 | |
-| ⬜ | POST | `/courses/{courseId}/join-requests/approve-all` | 🅰🅲 | 모두 승인 → `{approved}` | |
+| ✅ | GET | `/courses/{courseId}/members` | 🅰🅲 | 관리자 → 공동 관리자(지정 순) → 멤버(가입 순) | P-ROLE-02 |
+| ✅ | PATCH | `/courses/{courseId}/members/{userId}` | 🅰 | 멤버 ↔ 공동 관리자 | P-ROLE-02 |
+| ✅ | DELETE | `/courses/{courseId}/members/{userId}` | 🅰🅲 | 추방. 공동 관리자는 멤버만, 본인은 불가 | P-ROLE-05, 06 |
+| ✅ | GET | `/courses/{courseId}/join-requests` | 🅰🅲 | 대기 중인 요청 (요청 순) | |
+| ✅ | POST | `/courses/{courseId}/join-requests/{requestId}/approve` | 🅰🅲 | 승인 → 요청자 알림 | P-NOTI-03 |
+| ✅ | POST | `/courses/{courseId}/join-requests/{requestId}/reject` | 🅰🅲 | 거절 | |
+| ✅ | POST | `/courses/{courseId}/join-requests/approve-all` | 🅰🅲 | 모두 승인 → `{approved}` | |
 
 `requestId`는 요청한 사람의 `userId`입니다. 이미 처리된 요청은 404입니다.
 
