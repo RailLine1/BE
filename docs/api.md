@@ -51,6 +51,7 @@ Daybit 백엔드 API의 공통 규칙, 오류 코드, 엔드포인트 목록입�
 | 404 | `NOT_FOUND` | 없는 리소스 또는 멤버가 아닌 과목 |
 | 409 | `NICKNAME_TAKEN`, `LOGIN_ID_TAKEN` | 가입·닉네임 변경 중복 |
 | 409 | `ALREADY_ATTEMPTED` | 같은 Bit 두 번째 제출 (P-BIT-09) |
+| 409 | `BIT_CLOSED` | 마감된 Bit 시작 · 제출 (P-BIT-05) |
 | 409 | `COURSE_ENDED` | 종료된 과목 구독 (P-EXP-04) |
 | 413 | `FILE_TOO_LARGE` | 업로드 파일이 50MB 초과 (P-MAT-02) |
 | 500 | `INTERNAL_ERROR` | 서버 오류 |
@@ -75,8 +76,8 @@ Daybit 백엔드 API의 공통 규칙, 오류 코드, 엔드포인트 목록입�
 | ✅ | GET | `/me` | 로그인 | 내 정보 (구독 · 관리 과목 수 포함) | |
 | ✅ | PATCH | `/me` | 로그인 | 닉네임 변경 | P-ACC-03 |
 | ✅ | POST | `/me/onboarding/complete` | 로그인 | 서비스 소개 확인 표시 | P-ACC-05 |
-| ⬜ | GET | `/me/welcome` | 로그인 | 환영 화면 (새 자료, 남은 Bit, 연속 일수) | P-ACC-05 |
-| ⬜ | GET | `/me/streak?weeks=15` | 로그인 | 전체 학습 기록 격자 | P-BIT-13 |
+| ✅ | GET | `/me/welcome` | 로그인 | 환영 화면 (최근 24시간 새 자료, 오늘 남은 Bit, 연속 일수) | P-ACC-05 |
+| ✅ | GET | `/me/streak?weeks=15` | 로그인 | 전체 학습 기록 격자, 연속 · 최장 · 이번 달 일수 | P-BIT-13 |
 
 GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출하는 주소라 앱이 직접 쓰지 않습니다. 흐름은 [결정 기록 D3](decisions.md#d3-github-로그인은-딥링크-일회용-code-교환)에 있습니다.
 
@@ -139,12 +140,14 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 
 | 상태 | 메서드 | 경로 | 권한 | 요약 | 정책 |
 |---|---|---|---|---|---|
-| ⬜ | GET | `/bits/today` | 로그인 | 오늘의 과목별 Bit 티켓 | P-BIT-07 |
-| ⬜ | POST | `/bits/{bitId}/start` | 🅰🅲🅼 | 문제 내려주기 + 시작 시각 기록 (정답 · 해설 없음) | P-BIT-08 |
-| ⬜ | POST | `/bits/{bitId}/submit` | 🅰🅲🅼 | `{choice}` → 결과 티켓. 두 번째 제출은 409 | P-BIT-09, 10 |
-| ⬜ | GET | `/bits/{bitId}/ticket` | 🅰🅲🅼 | 결과 티켓 다시 보기 | P-BIT-11 |
-| ⬜ | GET | `/courses/{courseId}/records?day=today\|yesterday` | 🅰🅲🅼 | 함께 듣는 사람 기록 + 해설 + 내 기록 | P-BIT-12 |
-| ⬜ | GET | `/users/{userId}/profile` | 로그인 | 닉네임 + 전체 학습 기록 격자. 과목 정보 없음 | P-BIT-13, P-SOC-02 |
+| ✅ | GET | `/bits/today` | 로그인 | 오늘의 과목별 Bit 티켓 | P-BIT-07 |
+| ✅ | POST | `/bits/{bitId}/start` | 🅰🅲🅼 | 문제 내려주기 + 시작 시각 기록 (정답 · 해설 없음) | P-BIT-08 |
+| ✅ | POST | `/bits/{bitId}/submit` | 🅰🅲🅼 | `{choice}` → 결과 티켓. 시작 전 400, 두 번째 제출 409, 마감 뒤 409 | P-BIT-09, 10 |
+| ✅ | GET | `/bits/{bitId}/ticket` | 🅰🅲🅼 | 결과 티켓 다시 보기 | P-BIT-11 |
+| ✅ | GET | `/courses/{courseId}/records?day=today\|yesterday` | 🅰🅲🅼 | 함께 듣는 사람 기록 + 해설 + 내 기록 | P-BIT-12 |
+| ✅ | GET | `/users/{userId}/profile` | 로그인 | 닉네임 + 전체 학습 기록 격자. 과목 정보 없음 | P-BIT-13, P-SOC-02 |
+
+"오늘"은 17:00 기준입니다. 16:59까지는 어제 17:00에 열린 Bit가 오늘의 Bit입니다. 기록 · 격자의 날짜도 푼 시각이 아니라 Bit가 열린 날짜로 셉니다. `records`는 그날 Bit가 없으면 `bitNo: null`, 빈 `people`, `explanation: null`을 줍니다. 해설은 제출한 뒤나 마감된 Bit(어제)에서만 줍니다.
 
 ### 기록 (아카이브)
 
@@ -205,7 +208,7 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 |---|---|---|---|
 | ✅ | 자료 업로드 시 | 텍스트 추출 → `ready` · `failed` | P-MAT-03 |
 | ✅ | 자료 처리 완료 시 | 개념 · 문제 생성(Gemini Flash). 근거 문장이 페이지에 있는 문제만 `verified`. 작업 공간 출처는 건너뜀 | P-BIT-01, 02, 14 |
-| ⬜ | 매일 16:30 | 과목별 출제 범위 계산, 문제 1개 선택. 자료가 없으면 건너뜀 | P-BIT-03, 04, 06 |
-| ⬜ | 매일 17:00 | 오늘 Bit 열기와 알림. 어제 Bit 마감 → 집계 → 아카이브 게시 | P-BIT-05, P-ARC-01 |
-| ⬜ | 매일 00:10 | 과목 상태 점검: 활동 없음 OFF, 기말 OFF, 중간 시험일 경과 시 범위 전환 | P-BIT-16~18 |
+| ✅ | 매일 16:30 | 과목별 출제 범위 계산, 문제 1개 선택. 자료가 없으면 건너뜀 | P-BIT-03, 04, 06 |
+| ✅ | 매일 17:00 | 오늘 Bit 열기와 알림. 어제 Bit 마감 → 집계 → 아카이브 게시 | P-BIT-05, P-ARC-01 |
+| ✅ | 매일 00:10 | 과목 상태 점검: 활동 없음 OFF, 기말 OFF, 중간 시험일 경과 시 범위 전환 | P-BIT-16~18 |
 | ⬜ | 작업 공간 실패 시 | 출처를 Gemini Flash로 전환, 관리자 · 공동 관리자 알림 | P-BIT-15 |

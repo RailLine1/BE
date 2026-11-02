@@ -1,3 +1,5 @@
 daybit:
   storage:
     local-dir: build/test-storage
+  batch:
+    enabled: false   # 테스트는 BitBatchService 를 직접 불러요

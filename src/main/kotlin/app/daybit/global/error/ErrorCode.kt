@@ -18,6 +18,7 @@ enum class ErrorCode(val status: HttpStatus, val defaultMessage: String) {
     QUIZ_SOURCE_UNAVAILABLE(HttpStatus.BAD_REQUEST, "작업 공간에 연결된 내 AI만 퀴즈 출처로 고를 수 있어요."),
     FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "파일이 너무 커요. 50MB 이하로 올려 주세요."),
     ALREADY_ATTEMPTED(HttpStatus.CONFLICT, "이미 푼 문제예요."),
+    BIT_CLOSED(HttpStatus.CONFLICT, "마감된 문제예요."),
     COURSE_ENDED(HttpStatus.CONFLICT, "수강 기간이 끝난 과목이에요."),
     NOT_IMPLEMENTED(HttpStatus.NOT_IMPLEMENTED, "아직 준비 중인 기능이에요."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "잠시 후 다시 시도해 주세요."),

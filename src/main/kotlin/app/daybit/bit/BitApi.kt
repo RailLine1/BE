@@ -1,12 +1,11 @@
 package app.daybit.bit
 
 import app.daybit.global.common.Evidence
-import app.daybit.global.error.ApiException
-import app.daybit.global.error.ErrorCode
 import app.daybit.global.security.LoginUser
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.tags.Tag
+import jakarta.validation.Valid
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
 import org.springframework.web.bind.annotation.GetMapping
@@ -98,10 +97,12 @@ data class Explanation(
 
 data class RecordsResponse(
     val day: RecordDay,
-    val bitNo: Int,
+    @field:Schema(description = "그날 이 과목에 Bit 가 없으면 null (people 빈 목록, explanation null)")
+    val bitNo: Int?,
     val people: List<PersonRecord>,
     val mine: MyBit,
     val notify: Boolean,
+    @field:Schema(description = "제출한 뒤나 마감된 Bit 에서만 내려줘요 (P-BIT-09)")
     val explanation: Explanation?,
 )
 
@@ -133,48 +134,48 @@ data class WelcomeResponse(
 @Tag(name = "7. Bit")
 @RestController
 @RequestMapping("/api/v1")
-class BitController {
+class BitController(private val service: BitService) {
 
-    @Operation(summary = "오늘의 Bit 티켓 (P-BIT-07) · 준비 중")
+    @Operation(summary = "오늘의 Bit 티켓 (P-BIT-07)")
     @GetMapping("/bits/today")
-    fun today(@LoginUser userId: Long): List<BitTicket> = throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+    fun today(@LoginUser userId: Long): List<BitTicket> = service.today(userId)
 
-    @Operation(summary = "풀기 시작: 문제 + 서버 시작 시각 (P-BIT-08) · 준비 중")
+    @Operation(summary = "풀기 시작: 문제 + 서버 시작 시각 (P-BIT-08)", description = "다시 불러도 처음 시작 시각을 돌려줘요. 이미 제출했으면 409 ALREADY_ATTEMPTED, 마감 뒤는 409 BIT_CLOSED")
     @PostMapping("/bits/{bitId}/start")
     fun start(@LoginUser userId: Long, @PathVariable bitId: Long): StartResponse =
-        throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+        service.start(userId, bitId)
 
-    @Operation(summary = "제출 → 결과 티켓 (P-BIT-09, 10) · 준비 중", description = "두 번째 제출은 409 ALREADY_ATTEMPTED")
+    @Operation(summary = "제출 → 결과 티켓 (P-BIT-09, 10)", description = "시작하지 않았으면 400, 두 번째 제출은 409 ALREADY_ATTEMPTED, 마감 뒤는 409 BIT_CLOSED")
     @PostMapping("/bits/{bitId}/submit")
-    fun submit(@LoginUser userId: Long, @PathVariable bitId: Long, @RequestBody req: SubmitRequest): ResultTicket =
-        throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+    fun submit(@LoginUser userId: Long, @PathVariable bitId: Long, @Valid @RequestBody req: SubmitRequest): ResultTicket =
+        service.submit(userId, bitId, req.choice)
 
-    @Operation(summary = "결과 티켓 다시 보기 (P-BIT-11) · 준비 중")
+    @Operation(summary = "결과 티켓 다시 보기 (P-BIT-11)")
     @GetMapping("/bits/{bitId}/ticket")
     fun ticket(@LoginUser userId: Long, @PathVariable bitId: Long): ResultTicket =
-        throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+        service.ticket(userId, bitId)
 
-    @Operation(summary = "오늘의 결과: 함께 듣는 사람 + 내 비트 + 해설 (P-BIT-12) · 준비 중")
+    @Operation(summary = "오늘의 결과: 함께 듣는 사람 + 내 비트 + 해설 (P-BIT-12)")
     @GetMapping("/courses/{courseId}/records")
     fun records(
         @LoginUser userId: Long,
         @PathVariable courseId: Long,
         @RequestParam(defaultValue = "today") day: RecordDay,
-    ): RecordsResponse = throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+    ): RecordsResponse = service.records(userId, courseId, day)
 
-    @Operation(summary = "다른 사람 프로필: 닉네임 + 학습 기록 격자 (P-BIT-13) · 준비 중")
+    @Operation(summary = "다른 사람 프로필: 닉네임 + 학습 기록 격자 (P-BIT-13)")
     @GetMapping("/users/{targetUserId}/profile")
     fun profile(@LoginUser userId: Long, @PathVariable targetUserId: Long): ProfileResponse =
-        throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+        service.profile(targetUserId)
 
-    @Operation(summary = "내 학습 기록 격자 (P-BIT-13) · 준비 중")
+    @Operation(summary = "내 학습 기록 격자 (P-BIT-13)")
     @GetMapping("/me/streak")
     fun myStreak(
         @LoginUser userId: Long,
         @RequestParam(defaultValue = "15") @Min(1) @Max(53) weeks: Int,
-    ): StreakResponse = throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+    ): StreakResponse = service.streak(userId, weeks)
 
-    @Operation(summary = "환영 화면 데이터 (P-ACC-05) · 준비 중")
+    @Operation(summary = "환영 화면 데이터 (P-ACC-05)")
     @GetMapping("/me/welcome")
-    fun welcome(@LoginUser userId: Long): WelcomeResponse = throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+    fun welcome(@LoginUser userId: Long): WelcomeResponse = service.welcome(userId)
 }
