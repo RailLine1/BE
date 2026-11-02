@@ -9,6 +9,7 @@ data class DaybitProperties(
     val jwt: Jwt,
     val cors: Cors,
     val storage: Storage = Storage(),
+    val gemini: Gemini = Gemini(),
 ) {
     data class Jwt(
         val secret: String,
@@ -29,6 +30,12 @@ data class DaybitProperties(
         val type: StorageType = StorageType.local,
         val localDir: String = "./data/storage",
         val s3: S3 = S3(),
+    )
+
+    /** 기본 퀴즈 출처 (P-BIT-14). 키가 비어 있으면 문제를 만들지 않아요 */
+    data class Gemini(
+        val apiKey: String = "",
+        val model: String = "gemini-2.5-flash",
     )
 
     data class S3(

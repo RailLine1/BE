@@ -3,11 +3,7 @@ package app.daybit.material
 import app.daybit.TestcontainersConfiguration
 import app.daybit.support.Fixtures
 import app.daybit.support.TestUser
-import org.apache.pdfbox.pdmodel.PDDocument
-import org.apache.pdfbox.pdmodel.PDPage
-import org.apache.pdfbox.pdmodel.PDPageContentStream
-import org.apache.pdfbox.pdmodel.font.PDType1Font
-import org.apache.pdfbox.pdmodel.font.Standard14Fonts
+import app.daybit.support.samplePdf
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -16,17 +12,14 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.jdbc.core.simple.JdbcClient
-import org.springframework.mock.web.MockMultipartFile
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActionsDsl
 import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
-import org.springframework.test.web.servlet.multipart
 import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
 import tools.jackson.databind.json.JsonMapper
-import java.io.ByteArrayOutputStream
 import java.net.URI
 
 @Import(TestcontainersConfiguration::class)
@@ -44,14 +37,14 @@ class MaterialFlowTest(
     fun `업로드하면 processing 이었다가 페이지별 텍스트가 저장되고 ready 가 돼요`() {
         val admin = f.newUser()
         val (courseId, _) = f.createCourse(admin)
-        val mid = folderId(admin, courseId, "mid")
+        val mid = f.folderId(admin, courseId, "mid")
 
-        val fileId = upload(admin, mid, samplePdf("Process scheduling", "Round robin quantum")).andExpect {
+        val fileId = f.upload(admin, mid, samplePdf("Process scheduling", "Round robin quantum")).andExpect {
             status { isCreated() }
             jsonPath("$.status") { value("processing") }
         }.id()
 
-        assertThat(waitStatus(fileId)).isEqualTo("ready")
+        assertThat(f.waitFileStatus(fileId)).isEqualTo("ready")
         val pages = jdbc.sql("select text from file_pages where file_id = :id order by page_no").param("id", fileId)
             .query(String::class.java).list()
         assertThat(pages).hasSize(2)
@@ -74,14 +67,14 @@ class MaterialFlowTest(
     fun `PDF 가 아니거나 동의가 없으면 400, 읽을 수 없는 PDF 는 failed 가 돼요`() {
         val admin = f.newUser()
         val (courseId, _) = f.createCourse(admin)
-        val mid = folderId(admin, courseId, "mid")
+        val mid = f.folderId(admin, courseId, "mid")
 
-        upload(admin, mid, "hello".toByteArray()).andExpect { status { isBadRequest() } }
-        upload(admin, mid, samplePdf("a"), consent = false).andExpect { status { isBadRequest() } }
+        f.upload(admin, mid, "hello".toByteArray()).andExpect { status { isBadRequest() } }
+        f.upload(admin, mid, samplePdf("a"), consent = false).andExpect { status { isBadRequest() } }
         // 이름이 비면 파일 이름을 써요 (아래 이름 테스트 참고)
 
-        val broken = upload(admin, mid, "%PDF-1.7 broken".toByteArray()).andExpect { status { isCreated() } }.id()
-        assertThat(waitStatus(broken)).isEqualTo("failed")
+        val broken = f.upload(admin, mid, "%PDF-1.7 broken".toByteArray()).andExpect { status { isCreated() } }.id()
+        assertThat(f.waitFileStatus(broken)).isEqualTo("failed")
     }
 
     @Test
@@ -90,13 +83,13 @@ class MaterialFlowTest(
         val member = f.newUser()
         val (courseId, _) = f.createCourse(admin)
         f.join(courseId, member)
-        val mid = folderId(admin, courseId, "mid")
+        val mid = f.folderId(admin, courseId, "mid")
 
-        val ready = upload(admin, mid, samplePdf("ready one")).id()
-        assertThat(waitStatus(ready)).isEqualTo("ready")
+        val ready = f.upload(admin, mid, samplePdf("ready one")).id()
+        assertThat(f.waitFileStatus(ready)).isEqualTo("ready")
         // 처리 중인 파일을 흉내 내요
-        val processing = upload(admin, mid, samplePdf("processing one")).id()
-        waitStatus(processing)
+        val processing = f.upload(admin, mid, samplePdf("processing one")).id()
+        f.waitFileStatus(processing)
         jdbc.sql("update files set status = 'processing' where id = :id").param("id", processing).update()
 
         mvc.get("/api/v1/folders/$mid/files") { header("Authorization", member.bearer) }.andExpect {
@@ -114,7 +107,7 @@ class MaterialFlowTest(
         mvc.get("/api/v1/files/$processing") { header("Authorization", member.bearer) }.andExpect { status { isNotFound() } }
         mvc.get("/api/v1/files/$processing") { header("Authorization", admin.bearer) }.andExpect { status { isOk() } }
 
-        upload(member, mid, samplePdf("x")).andExpect { status { isForbidden() } }
+        f.upload(member, mid, samplePdf("x")).andExpect { status { isForbidden() } }
         createFolder(member, courseId, "기출").andExpect { status { isForbidden() } }
         mvc.delete("/api/v1/files/$ready") { header("Authorization", member.bearer) }.andExpect { status { isForbidden() } }
 
@@ -132,9 +125,9 @@ class MaterialFlowTest(
         val (courseId, _) = f.createCourse(admin)
         f.join(courseId, co, role = "co", coSinceDaysAgo = 1)
         f.join(courseId, member)
-        val mid = folderId(admin, courseId, "mid")
-        val fileId = upload(admin, mid, samplePdf("raw")).id()
-        waitStatus(fileId)
+        val mid = f.folderId(admin, courseId, "mid")
+        val fileId = f.upload(admin, mid, samplePdf("raw")).id()
+        f.waitFileStatus(fileId)
 
         mvc.patch("/api/v1/courses/$courseId") {
             header("Authorization", admin.bearer)
@@ -153,7 +146,7 @@ class MaterialFlowTest(
     fun `기본 폴더는 이름 변경 · 삭제가 안 되고, 만든 폴더는 파일과 함께 지워져요`() {
         val admin = f.newUser()
         val (courseId, _) = f.createCourse(admin)
-        val mid = folderId(admin, courseId, "mid")
+        val mid = f.folderId(admin, courseId, "mid")
 
         rename(admin, mid, "중간").andExpect { status { isBadRequest() } }
         mvc.delete("/api/v1/folders/$mid") { header("Authorization", admin.bearer) }.andExpect { status { isBadRequest() } }
@@ -169,8 +162,8 @@ class MaterialFlowTest(
             .let { json.readTree(it).toList().map { n -> n.path("name").asString() } }
         assertThat(names).containsExactly("mid", "final", "기출 문제")
 
-        val fileId = upload(admin, custom, samplePdf("in custom")).id()
-        waitStatus(fileId)
+        val fileId = f.upload(admin, custom, samplePdf("in custom")).id()
+        f.waitFileStatus(fileId)
         val key = storageKey(fileId)
         assertThat(storageFile(key)).exists()
 
@@ -183,9 +176,9 @@ class MaterialFlowTest(
     fun `임시 URL 로 원본을 열 수 있고, 서명이 틀리면 404 예요`() {
         val admin = f.newUser()
         val (courseId, _) = f.createCourse(admin)
-        val mid = folderId(admin, courseId, "mid")
-        val fileId = upload(admin, mid, samplePdf("view me")).id()
-        waitStatus(fileId)
+        val mid = f.folderId(admin, courseId, "mid")
+        val fileId = f.upload(admin, mid, samplePdf("view me")).id()
+        f.waitFileStatus(fileId)
 
         val url = mvc.get("/api/v1/files/$fileId") { header("Authorization", admin.bearer) }
             .andExpect { status { isOk() }; jsonPath("$.expiresAt") { isNotEmpty() } }
@@ -202,10 +195,10 @@ class MaterialFlowTest(
     fun `파일을 지우면 원본도 지워지고, 관리자가 혼자 탈퇴해 과목이 사라지면 원본도 지워져요`() {
         val admin = f.newUser()
         val (courseId, _) = f.createCourse(admin)
-        val mid = folderId(admin, courseId, "mid")
-        val first = upload(admin, mid, samplePdf("first")).id()
-        val second = upload(admin, mid, samplePdf("second")).id()
-        waitStatus(first); waitStatus(second)
+        val mid = f.folderId(admin, courseId, "mid")
+        val first = f.upload(admin, mid, samplePdf("first")).id()
+        val second = f.upload(admin, mid, samplePdf("second")).id()
+        f.waitFileStatus(first); f.waitFileStatus(second)
         val firstKey = storageKey(first)
         val secondKey = storageKey(second)
 
@@ -225,8 +218,8 @@ class MaterialFlowTest(
         jdbc.sql("update courses set state = 'ended', ended_reason = 'inactive', ended_at = now() where id = :id").param("id", inactive).update()
         jdbc.sql("update courses set state = 'ended', ended_reason = 'final_exam', ended_at = now() where id = :id").param("id", finalEnded).update()
 
-        upload(admin, folderId(admin, inactive, "mid"), samplePdf("back")).andExpect { status { isCreated() } }
-        upload(admin, folderId(admin, finalEnded, "mid"), samplePdf("still ended")).andExpect { status { isCreated() } }
+        f.upload(admin, f.folderId(admin, inactive, "mid"), samplePdf("back")).andExpect { status { isCreated() } }
+        f.upload(admin, f.folderId(admin, finalEnded, "mid"), samplePdf("still ended")).andExpect { status { isCreated() } }
 
         assertThat(state(inactive)).isEqualTo("active")
         assertThat(state(finalEnded)).isEqualTo("ended")
@@ -239,11 +232,11 @@ class MaterialFlowTest(
         val stranger = f.newUser()
         val (courseId, _) = f.createCourse(admin)
         f.join(courseId, member)
-        val mid = folderId(admin, courseId, "mid")
+        val mid = f.folderId(admin, courseId, "mid")
 
-        val fileId = upload(admin, mid, samplePdf("named by file"), title = null, filename = "3주차 프로세스.PDF").id()
-        waitStatus(fileId)
-        upload(admin, mid, samplePdf("x"), title = "가".repeat(81)).andExpect { status { isBadRequest() } }
+        val fileId = f.upload(admin, mid, samplePdf("named by file"), title = null, filename = "3주차 프로세스.PDF").id()
+        f.waitFileStatus(fileId)
+        f.upload(admin, mid, samplePdf("x"), title = "가".repeat(81)).andExpect { status { isBadRequest() } }
         mvc.get("/api/v1/folders/$mid/files") { header("Authorization", admin.bearer) }
             .andExpect { jsonPath("$[0].title") { value("3주차 프로세스") } }
 
@@ -268,18 +261,6 @@ class MaterialFlowTest(
             content = json.writeValueAsString(mapOf("title" to title))
         }
 
-    /** title 이 null 이면 보내지 않아요 (파일 이름을 쓰는 경우) */
-    private fun upload(
-        user: TestUser, folderId: Long, bytes: ByteArray, title: String? = "강의 자료", consent: Boolean = true,
-        filename: String = "lecture.pdf",
-    ) =
-        mvc.multipart("/api/v1/folders/$folderId/files") {
-            header("Authorization", user.bearer)
-            file(MockMultipartFile("file", filename, "application/pdf", bytes))
-            title?.let { param("title", it) }
-            param("consent", consent.toString())
-        }
-
     private fun ResultActionsDsl.id(): Long =
         json.readTree(andReturn().response.contentAsString).path("fileId").asLong()
 
@@ -297,22 +278,6 @@ class MaterialFlowTest(
             content = """{"name":"$name"}"""
         }
 
-    private fun folderId(user: TestUser, courseId: Long, name: String): Long {
-        val body = mvc.get("/api/v1/courses/$courseId/folders") { header("Authorization", user.bearer) }
-            .andExpect { status { isOk() } }.andReturn().response.contentAsString
-        return json.readTree(body).toList().first { it.path("name").asString() == name }.path("folderId").asLong()
-    }
-
-    /** 추출은 별도 스레드에서 돌아요. 끝날 때까지 기다려요 */
-    private fun waitStatus(fileId: Long): String {
-        repeat(100) {
-            val status = jdbc.sql("select status from files where id = :id").param("id", fileId).query(String::class.java).single()
-            if (status != "processing") return status
-            Thread.sleep(100)
-        }
-        error("10초 안에 처리되지 않았어요: $fileId")
-    }
-
     private fun storageKey(fileId: Long) =
         jdbc.sql("select storage_key from files where id = :id").param("id", fileId).query(String::class.java).single()
 
@@ -320,16 +285,4 @@ class MaterialFlowTest(
 
     private fun state(courseId: Long) =
         jdbc.sql("select state from courses where id = :id").param("id", courseId).query(String::class.java).single()
-
-    private fun samplePdf(vararg pageTexts: String): ByteArray = PDDocument().use { doc ->
-        val font = PDType1Font(Standard14Fonts.FontName.HELVETICA)
-        pageTexts.forEach { text ->
-            val page = PDPage()
-            doc.addPage(page)
-            PDPageContentStream(doc, page).use { cs ->
-                cs.beginText(); cs.setFont(font, 14f); cs.newLineAtOffset(72f, 700f); cs.showText(text); cs.endText()
-            }
-        }
-        ByteArrayOutputStream().also { doc.save(it) }.toByteArray()
-    }
 }

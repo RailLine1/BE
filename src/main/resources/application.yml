@@ -55,6 +55,9 @@ daybit:
       bucket: ${DAYBIT_R2_BUCKET:}
       access-key: ${DAYBIT_R2_ACCESS_KEY:}
       secret-key: ${DAYBIT_R2_SECRET_KEY:}
+  gemini:
+    api-key: ${DAYBIT_GEMINI_API_KEY:}       # 비어 있으면 문제를 만들지 않아요
+    model: ${DAYBIT_GEMINI_MODEL:gemini-2.5-flash}
 
 ---
 spring:

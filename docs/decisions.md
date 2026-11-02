@@ -51,3 +51,9 @@
 `daybit.storage.type`이 `local`이면 서버 디스크(`DAYBIT_STORAGE_DIR`)에, `s3`이면 Cloudflare R2에 원본을 저장한다. 로컬 개발과 테스트에 R2 키나 MinIO 컨테이너가 필요 없도록 디스크 구현을 기본값으로 뒀다. 보기용 임시 URL은 R2면 presigned URL, 로컬이면 서버의 `/local-files/…?exp=&sig=`(HMAC 서명, 10분)이다. Railway 컨테이너 디스크는 재배포 때 지워지므로 배포 서버는 R2를 쓴다.
 
 PDF 텍스트 추출은 업로드 트랜잭션이 커밋된 뒤 별도 스레드(`@Async`)에서 한다. 서버가 추출 도중 재시작되면 그 파일은 `processing`에 머문다. 재처리 배치는 아직 없다.
+
+## D8. Gemini는 Spring AI 없이 REST로 호출한다
+
+`06_기술스택`은 Spring AI(Gemini Flash)였다. 문제 생성에 필요한 것은 JSON 스키마를 지정한 `generateContent` 호출 하나뿐이고, Spring Boot 4와 맞는 Spring AI 버전 확인에 시간을 쓰지 않기 위해 `RestClient`로 직접 호출한다(`bit/generation/GeminiQuestionGenerator`). 생성기는 `QuestionGenerator` 인터페이스 뒤에 두어 작업 공간 출처(#10)나 다른 모델로 바꿀 수 있다. 커넥터(#8)의 Spring AI MCP Server 사용 여부는 그 이슈에서 따로 정한다.
+
+근거 검증은 모델이 근거 페이지에서 그대로 옮긴 문장(`evidenceQuote`)이 실제 페이지 텍스트에 있는지로 판단한다. PDF 추출과 모델 출력의 공백 · 줄바꿈이 달라 공백을 모두 지우고 대소문자를 무시해 비교한다. 통과하지 못한 문제도 저장하되 `verified = false`로 두어 출제하지 않는다.
