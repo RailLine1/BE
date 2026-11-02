@@ -165,8 +165,10 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 
 | 상태 | 메서드 | 경로 | 권한 | 요약 | 정책 |
 |---|---|---|---|---|---|
-| ⬜ | POST | `/push/tokens` | 로그인 | FCM 기기 토큰 등록 `{token, platform: android\|ios\|web}`. 같은 토큰은 갱신 | P-NOTI-01 |
-| ⬜ | DELETE | `/push/tokens` | 로그인 | 기기 토큰 삭제 `{token}` (로그아웃 시) | |
+| ✅ | POST | `/push/tokens` | 로그인 | FCM 기기 토큰 등록 `{token, platform: android\|ios\|web}`. 같은 토큰은 갱신 | P-NOTI-01 |
+| ✅ | DELETE | `/push/tokens` | 로그인 | 기기 토큰 삭제 `{token}` (로그아웃 시) | |
+
+푸시 4종(Bit 열림, 가입 승인, 관리자 승격, 퀴즈 출처 전환)은 알림이 기록되는 즉시 보냅니다. Bit 열림은 그 과목 알림을 켠 사람에게만 갑니다. 푸시의 `data`에는 `type`(알림 종류), `courseId`, Bit 열림이면 `bitId`가 문자열로 들어 있어 앱이 이동할 화면을 정합니다.
 
 ### 커넥터
 

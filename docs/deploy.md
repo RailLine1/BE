@@ -67,13 +67,20 @@ Postgres 서비스가 제공하는 **`DATABASE_URL`은 넣지 않습니다.** `p
 | `DAYBIT_R2_ACCESS_KEY` | R2 API 토큰의 Access Key ID | 해당 버킷의 객체 읽기 · 쓰기 권한이 필요합니다 |
 | `DAYBIT_R2_SECRET_KEY` | R2 API 토큰의 Secret Access Key | |
 
+### 푸시 알림 (Firebase)
+
+값이 없으면 알림은 DB에만 기록되고 푸시는 보내지 않습니다.
+
+| 이름 | 값 | 설명 |
+|---|---|---|
+| `DAYBIT_FIREBASE_CREDENTIALS` | 서비스 계정 JSON | Firebase 콘솔 › 프로젝트 설정 › 서비스 계정 › 새 비공개 키 생성으로 받은 JSON입니다. 원문 그대로 넣거나, 줄바꿈 문제가 있으면 `base64 -w0 key.json` 결과를 넣습니다. iOS로 보내려면 Firebase에 APNs 키도 등록해야 합니다 |
+
 ### 이후 추가될 값
 
 기능을 구현하면서 아래 값을 요청할 예정입니다. 이름과 형식은 요청할 때 함께 전달합니다.
 
 | 기능 | 필요한 값 |
 |---|---|
-| 푸시 알림 | Firebase 서비스 계정 (iOS는 APNs 키 등록 포함) |
 | GitHub 로그인 | GitHub OAuth 앱 Client ID · Secret |
 
 ## 배포 후 확인

@@ -1,7 +1,5 @@
 package app.daybit.push
 
-import app.daybit.global.error.ApiException
-import app.daybit.global.error.ErrorCode
 import app.daybit.global.security.LoginUser
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -25,21 +23,21 @@ data class PushTokenRequest(
 
 data class PushTokenDeleteRequest(@field:NotBlank val token: String)
 
-/** 알림은 FCM 으로 보내요 (문서의 웹 푸시 대신, BE README 참고) */
+/** 알림은 FCM 으로 보내요 (결정 D4) */
 @Tag(name = "9. 알림")
 @RestController
 @RequestMapping("/api/v1/push/tokens")
-class PushController {
+class PushController(private val service: PushService) {
 
-    @Operation(summary = "FCM 기기 토큰 등록 · 준비 중", description = "앱 시작·로그인 때마다 보내도 돼요 (같은 토큰은 갱신)")
+    @Operation(summary = "FCM 기기 토큰 등록", description = "앱 시작·로그인 때마다 보내도 돼요. 같은 토큰은 갱신하고, 다른 계정에 있던 토큰이면 지금 계정으로 옮겨요")
     @PostMapping
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun register(@LoginUser userId: Long, @Valid @RequestBody req: PushTokenRequest): Unit =
-        throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+    fun register(@LoginUser userId: Long, @Valid @RequestBody req: PushTokenRequest) =
+        service.register(userId, req.token, req.platform)
 
-    @Operation(summary = "FCM 기기 토큰 삭제 (로그아웃 시) · 준비 중")
+    @Operation(summary = "FCM 기기 토큰 삭제 (로그아웃 시)", description = "로그아웃 API 를 부르기 전에 보내요. 내 토큰이 아니거나 없어도 204")
     @DeleteMapping
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun unregister(@LoginUser userId: Long, @Valid @RequestBody req: PushTokenDeleteRequest): Unit =
-        throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+    fun unregister(@LoginUser userId: Long, @Valid @RequestBody req: PushTokenDeleteRequest) =
+        service.unregister(userId, req.token)
 }

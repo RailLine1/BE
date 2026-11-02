@@ -58,6 +58,8 @@ daybit:
   gemini:
     api-key: ${DAYBIT_GEMINI_API_KEY:}       # 비어 있으면 문제를 만들지 않아요
     model: ${DAYBIT_GEMINI_MODEL:gemini-2.5-flash}
+  firebase:
+    credentials: ${DAYBIT_FIREBASE_CREDENTIALS:}   # 서비스 계정 JSON(원문 또는 base64). 비우면 푸시를 보내지 않아요
 
 ---
 spring:

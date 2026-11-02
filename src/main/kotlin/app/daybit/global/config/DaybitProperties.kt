@@ -10,6 +10,7 @@ data class DaybitProperties(
     val cors: Cors,
     val storage: Storage = Storage(),
     val gemini: Gemini = Gemini(),
+    val firebase: Firebase = Firebase(),
 ) {
     data class Jwt(
         val secret: String,
@@ -44,4 +45,7 @@ data class DaybitProperties(
         val accessKey: String = "",
         val secretKey: String = "",
     )
+
+    /** FCM 발송용 서비스 계정 JSON(원문 또는 base64). 비어 있으면 푸시를 보내지 않아요 */
+    data class Firebase(val credentials: String = "")
 }
