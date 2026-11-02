@@ -75,13 +75,15 @@ Postgres 서비스가 제공하는 **`DATABASE_URL`은 넣지 않습니다.** `p
 |---|---|---|
 | `DAYBIT_FIREBASE_CREDENTIALS` | 서비스 계정 JSON | Firebase 콘솔 › 프로젝트 설정 › 서비스 계정 › 새 비공개 키 생성으로 받은 JSON입니다. 원문 그대로 넣거나, 줄바꿈 문제가 있으면 `base64 -w0 key.json` 결과를 넣습니다. iOS로 보내려면 Firebase에 APNs 키도 등록해야 합니다 |
 
-### 이후 추가될 값
+### GitHub 로그인
 
-기능을 구현하면서 아래 값을 요청할 예정입니다. 이름과 형식은 요청할 때 함께 전달합니다.
+값이 없으면 GitHub 로그인 버튼을 누를 때 GitHub가 오류 화면을 보여 줍니다. 아이디 로그인은 영향이 없습니다.
 
-| 기능 | 필요한 값 |
-|---|---|
-| GitHub 로그인 | GitHub OAuth 앱 Client ID · Secret |
+| 이름 | 값 | 설명 |
+|---|---|---|
+| `DAYBIT_GITHUB_CLIENT_ID` | OAuth 앱 Client ID | GitHub › Settings › Developer settings › OAuth Apps에서 만듭니다. **Authorization callback URL**은 `https://<BE 도메인>/api/v1/auth/github/callback`입니다 |
+| `DAYBIT_GITHUB_CLIENT_SECRET` | OAuth 앱 Client Secret | |
+| `DAYBIT_GITHUB_REDIRECTS` | 기본값 `daybit://*,exp://*,http://localhost:*` | 로그인 뒤 돌아갈 앱 주소 패턴입니다. 웹 프론트 주소(예: `https://*.expo.app/*`)를 쓰면 추가합니다 |
 
 ## 배포 후 확인
 
