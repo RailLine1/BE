@@ -248,10 +248,17 @@ class WorkspaceService(
             """.trimIndent(),
         ).param("id", id).param("u", userId).param("ai", ai).param("kind", kind)
             .param("c", courseId).param("f", fileId).param("count", count).update()
-        github.dispatch(
-            cipher.decrypt(tokenEnc), repo, props.workspace.workflow,
-            mapOf("job_id" to id.toString(), "ai" to ai, "server" to props.publicBaseUrl.trimEnd('/')),
-        )
+        try {
+            github.dispatch(
+                cipher.decrypt(tokenEnc), repo, props.workspace.workflow,
+                mapOf("job_id" to id.toString(), "ai" to ai, "server" to props.publicBaseUrl.trimEnd('/')),
+            )
+        } catch (e: Exception) {
+            // 요청 자체가 실패한 작업은 바로 닫아요. 남겨 두면 시간 초과 정리에서 한 번 더 실패 처리돼요
+            jdbc.sql("update workspace_jobs set status = 'failed', error = :e, finished_at = now() where id = :id")
+                .param("e", "실행 요청 실패: ${e.message?.take(200)}").param("id", id).update()
+            throw e
+        }
     }
 
     /** 실패 처리. 테스트면 오류만 남기고, 생성이면 Gemini 로 전환하고 그 자료를 Gemini 로 다시 만들어요 (P-BIT-15) */

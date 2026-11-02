@@ -7,6 +7,8 @@ import org.springframework.context.event.EventListener
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
+import org.springframework.transaction.event.TransactionPhase
+import org.springframework.transaction.event.TransactionalEventListener
 import java.time.Clock
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -46,8 +48,9 @@ class QuestionBankService(
             .onFailure { log.warn("문제 생성 실패: fileId={}", event.fileId, it) }
     }
 
+    /** 전환(출처 · AI 상태 변경)이 커밋된 뒤에 돌아야 작업 공간으로 다시 보내지 않아요 */
     @Async
-    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     fun onWorkspaceFallback(event: WorkspaceFallbackEvent) {
         runCatching { generateForFile(event.fileId) }
             .onFailure { log.warn("작업 공간 대신 Gemini 생성 실패: fileId={}", event.fileId, it) }

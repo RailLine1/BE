@@ -228,6 +228,10 @@ class WorkspaceFlowTest(
         val failedFile = f.uploadReady(admin, first, "Circular wait breaks with ordering")
         waitGeminiQuestions(failedFile)
         assertThat(sourceType(first)).isEqualTo("default")
+        // 요청이 실패한 작업은 바로 닫혀서, 시간 초과 정리에서 다시 전환 · 재생성하지 않아요
+        val open = jdbc.sql("select count(*) from workspace_jobs where file_id = :f and status in ('pending', 'running')")
+            .param("f", failedFile).query(Int::class.java).single()
+        assertThat(open).isZero()
 
         // 시간 초과: 다시 ready 로 돌리고 새 과목으로
         github.dispatchFails = false
@@ -238,7 +242,14 @@ class WorkspaceFlowTest(
         assertThat(workspace.sweep(OffsetDateTime.now().plusHours(1))).isGreaterThanOrEqualTo(1)
         waitGeminiQuestions(slowFile)
         assertThat(sourceType(second)).isEqualTo("default")
+        Thread.sleep(500)
+        assertThat(geminiCount(failedFile)).isEqualTo(1)
+        assertThat(geminiCount(slowFile)).isEqualTo(1)
     }
+
+    private fun geminiCount(fileId: Long) =
+        jdbc.sql("select count(*) from questions where evidence_file_id = :f and source = 'gemini'").param("f", fileId)
+            .query(Int::class.java).single()
 
     // ---------- 도우미 ----------
 
