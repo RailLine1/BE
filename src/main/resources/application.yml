@@ -1,0 +1,88 @@
+spring:
+  application:
+    name: daybit-server
+  profiles:
+    default: local
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate          # 스키마는 Flyway 가 관리해요. 엔티티와 어긋나면 기동 실패.
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Seoul
+  flyway:
+    locations: classpath:db/migration
+  servlet:
+    multipart:
+      max-file-size: 50MB         # [미정] P-MAT-02 파일 크기 상한. 임시값.
+      max-request-size: 55MB
+  threads:
+    virtual:
+      enabled: true
+
+server:
+  port: ${PORT:8080}              # Railway 는 포트를 PORT 환경 변수로 줘요
+  forward-headers-strategy: framework
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui
+    operations-sorter: alpha
+    tags-sorter: alpha
+
+daybit:
+  public-base-url: http://localhost:8080
+  jwt:
+    # 운영에서는 반드시 환경 변수 DAYBIT_JWT_SECRET 으로 바꿔요 (32바이트 이상).
+    secret: ${DAYBIT_JWT_SECRET:local-dev-secret-change-me-0123456789abcdef}
+    access-ttl: 30m
+    refresh-ttl: 14d
+  cors:
+    allowed-origins: ${DAYBIT_CORS_ORIGINS:http://localhost:8081,http://localhost:19006}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  docker:
+    compose:
+      lifecycle-management: start-only   # 서버를 꺼도 DB 컨테이너는 유지
+
+logging:
+  level:
+    app.daybit: debug
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  # DATABASE_URL 은 JDBC 형식(jdbc:postgresql://...)이어야 해요.
+  # 비워 두면 Railway Postgres 가 주는 PGHOST · PGPORT · PGDATABASE · PGUSER · PGPASSWORD 로 조립해요.
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}}
+    username: ${DATABASE_USERNAME:${PGUSER}}
+    password: ${DATABASE_PASSWORD:${PGPASSWORD}}
+
+# 해커톤 동안은 프론트가 배포 서버의 /v3/api-docs 로 Orval 을 돌리도록 Swagger 를 켜 둬요.
+# 정식 출시 때는 DAYBIT_SWAGGER_ENABLED=false 로 꺼요.
+springdoc:
+  api-docs:
+    enabled: ${DAYBIT_SWAGGER_ENABLED:true}
+  swagger-ui:
+    enabled: ${DAYBIT_SWAGGER_ENABLED:true}
+
+daybit:
+  public-base-url: ${DAYBIT_PUBLIC_BASE_URL}
+  jwt:
+    secret: ${DAYBIT_JWT_SECRET}   # 운영에서는 기본값 없이 꼭 넣어야 떠요
