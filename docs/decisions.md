@@ -36,7 +36,9 @@
 
 ## D4. 푸시는 FCM
 
-문서의 웹 푸시(`push_subscriptions`)는 앱 안에서 동작하지 않아, `06_기술스택`에서 FCM으로 통일했다. 테이블은 `push_tokens(token, platform: android | ios | web)`이다. iOS 발송에는 APNs 키가 필요하다. 구현은 이슈 #7에서 한다.
+문서의 웹 푸시(`push_subscriptions`)는 앱 안에서 동작하지 않아, `06_기술스택`에서 FCM으로 통일했다. 테이블은 `push_tokens(token, platform: android | ios | web)`이다. iOS 발송에는 APNs 키가 필요하다.
+
+발송은 Firebase Admin SDK 대신 FCM HTTP v1 API를 `google-auth-library`(서비스 계정 토큰)와 `RestClient`로 직접 호출한다. 의존성이 작고 필요한 기능은 단건 발송뿐이기 때문이다. `Notifier`가 알림을 기록한 트랜잭션이 커밋되면 별도 가상 스레드에서 바로 보낸다(모아 보내기 없음). FCM이 404 `UNREGISTERED` 또는 400 `INVALID_ARGUMENT`로 답한 토큰은 지운다.
 
 ## D5. `bits.open_date` 컬럼
 

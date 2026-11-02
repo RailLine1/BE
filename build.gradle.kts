@@ -47,6 +47,9 @@ dependencies {
 	implementation(platform("software.amazon.awssdk:bom:2.39.6"))
 	implementation("software.amazon.awssdk:s3")
 
+	// 푸시: FCM HTTP v1 호출용 Google 서비스 계정 인증
+	implementation("com.google.auth:google-auth-library-oauth2-http:1.52.0")
+
 	// Kotlin
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("tools.jackson.module:jackson-module-kotlin")
