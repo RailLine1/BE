@@ -8,6 +8,7 @@ data class DaybitProperties(
     val publicBaseUrl: String,
     val jwt: Jwt,
     val cors: Cors,
+    val storage: Storage = Storage(),
 ) {
     data class Jwt(
         val secret: String,
@@ -18,5 +19,22 @@ data class DaybitProperties(
     data class Cors(
         // 정확한 주소 또는 와일드카드 패턴 (예: 모든 expo.app 하위 주소)
         val allowedOrigins: List<String>,
+    )
+
+    @Suppress("EnumEntryName")
+    enum class StorageType { local, s3 }
+
+    /** 학습자료 원본 저장소. 운영은 s3(Cloudflare R2), 로컬 · 테스트는 local(디스크) */
+    data class Storage(
+        val type: StorageType = StorageType.local,
+        val localDir: String = "./data/storage",
+        val s3: S3 = S3(),
+    )
+
+    data class S3(
+        val endpoint: String = "",
+        val bucket: String = "",
+        val accessKey: String = "",
+        val secretKey: String = "",
     )
 }

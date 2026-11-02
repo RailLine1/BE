@@ -15,8 +15,8 @@ spring:
     locations: classpath:db/migration
   servlet:
     multipart:
-      max-file-size: 50MB         # [미정] P-MAT-02 파일 크기 상한. 임시값.
-      max-request-size: 55MB
+      max-file-size: 50MB         # P-MAT-02 파일 크기 상한 (정책서 [미정], 임시값)
+      max-request-size: 51MB
   threads:
     virtual:
       enabled: true
@@ -47,6 +47,14 @@ daybit:
     refresh-ttl: 14d
   cors:
     allowed-origins: ${DAYBIT_CORS_ORIGINS:http://localhost:8081,http://localhost:19006}
+  storage:
+    type: ${DAYBIT_STORAGE_TYPE:local}       # local(디스크) | s3(Cloudflare R2)
+    local-dir: ${DAYBIT_STORAGE_DIR:./data/storage}
+    s3:
+      endpoint: ${DAYBIT_R2_ENDPOINT:}       # https://<계정 ID>.r2.cloudflarestorage.com
+      bucket: ${DAYBIT_R2_BUCKET:}
+      access-key: ${DAYBIT_R2_ACCESS_KEY:}
+      secret-key: ${DAYBIT_R2_SECRET_KEY:}
 
 ---
 spring:

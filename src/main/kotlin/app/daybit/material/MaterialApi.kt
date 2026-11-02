@@ -1,7 +1,5 @@
 package app.daybit.material
 
-import app.daybit.global.error.ApiException
-import app.daybit.global.error.ErrorCode
 import app.daybit.global.security.LoginUser
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -42,6 +40,10 @@ data class FolderRequest(
     @field:NotBlank @field:Size(max = 30) val name: String,
 )
 
+data class FileTitleRequest(
+    @field:NotBlank @field:Size(max = 80) val title: String,
+)
+
 data class FileItem(
     val fileId: Long,
     val title: String,
@@ -61,60 +63,65 @@ data class FileViewResponse(
 @Tag(name = "6. 학습자료")
 @RestController
 @RequestMapping("/api/v1")
-class MaterialController {
+class MaterialController(private val service: MaterialService) {
 
-    @Operation(summary = "폴더 목록 (P-MAT-04, 05) · 준비 중", description = "원본 열람 off 면 멤버는 403")
+    @Operation(summary = "폴더 목록 (P-MAT-04, 05)", description = "원본 열람 off 면 멤버는 403")
     @GetMapping("/courses/{courseId}/folders")
     fun folders(@LoginUser userId: Long, @PathVariable courseId: Long): List<FolderItem> =
-        throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+        service.folders(userId, courseId)
 
-    @Operation(summary = "폴더 만들기 (P-MAT-01) · 준비 중")
+    @Operation(summary = "폴더 만들기 (P-MAT-01)")
     @PostMapping("/courses/{courseId}/folders")
     @ResponseStatus(HttpStatus.CREATED)
     fun createFolder(
         @LoginUser userId: Long,
         @PathVariable courseId: Long,
         @Valid @RequestBody req: FolderRequest,
-    ): FolderItem = throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+    ): FolderItem = service.createFolder(userId, courseId, req)
 
-    @Operation(summary = "폴더 이름 변경 (mid·final 은 400) · 준비 중")
+    @Operation(summary = "폴더 이름 변경 (mid·final 은 400)")
     @PatchMapping("/folders/{folderId}")
     fun renameFolder(
         @LoginUser userId: Long,
         @PathVariable folderId: Long,
         @Valid @RequestBody req: FolderRequest,
-    ): FolderItem = throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+    ): FolderItem = service.renameFolder(userId, folderId, req)
 
-    @Operation(summary = "폴더 삭제 (mid·final 은 400) · 준비 중")
+    @Operation(summary = "폴더 삭제 (mid·final 은 400)")
     @DeleteMapping("/folders/{folderId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun deleteFolder(@LoginUser userId: Long, @PathVariable folderId: Long): Unit =
-        throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+    fun deleteFolder(@LoginUser userId: Long, @PathVariable folderId: Long) =
+        service.deleteFolder(userId, folderId)
 
-    @Operation(summary = "파일 목록 (멤버는 ready 만, P-MAT-04) · 준비 중")
+    @Operation(summary = "파일 목록 (멤버는 ready 만, P-MAT-04)")
     @GetMapping("/folders/{folderId}/files")
     fun files(@LoginUser userId: Long, @PathVariable folderId: Long): List<FileItem> =
-        throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+        service.files(userId, folderId)
 
-    @Operation(summary = "PDF 업로드 (P-MAT-02, 03) · 준비 중", description = "consent=true 필수. 업로드 후 status=processing")
+    @Operation(summary = "PDF 업로드 (P-MAT-02, 03)", description = "PDF만, 50MB 이하(초과 시 413 FILE_TOO_LARGE). consent=true 필수. title 을 비우면 파일 이름(.pdf 제외, 80자까지)을 써요. 응답은 status=processing 이고, 텍스트 추출이 끝나면 ready · failed 로 바뀌어요")
     @PostMapping("/folders/{folderId}/files", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @ResponseStatus(HttpStatus.CREATED)
     fun upload(
         @LoginUser userId: Long,
         @PathVariable folderId: Long,
         @RequestPart file: MultipartFile,
-        @RequestParam title: String,
+        @RequestParam(required = false) title: String?,
         @RequestParam consent: Boolean,
-    ): UploadResponse = throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+    ): UploadResponse = service.upload(userId, folderId, file, title, consent)
 
-    @Operation(summary = "원본 보기용 임시 URL (원본 열람 off 면 멤버 403, P-MAT-05) · 준비 중")
+    @Operation(summary = "원본 보기용 임시 URL (원본 열람 off 면 멤버 403, P-MAT-05)", description = "URL 은 10분 동안 로그인 없이 열려요. 멤버는 ready 가 아닌 파일이면 404")
     @GetMapping("/files/{fileId}")
     fun view(@LoginUser userId: Long, @PathVariable fileId: Long): FileViewResponse =
-        throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+        service.view(userId, fileId)
 
-    @Operation(summary = "파일 삭제 · 준비 중")
+    @Operation(summary = "파일 이름 변경", description = "관리자 · 공동 관리자만. 원본과 추출 텍스트는 그대로예요")
+    @PatchMapping("/files/{fileId}")
+    fun renameFile(@LoginUser userId: Long, @PathVariable fileId: Long, @Valid @RequestBody req: FileTitleRequest): FileItem =
+        service.renameFile(userId, fileId, req.title)
+
+    @Operation(summary = "파일 삭제")
     @DeleteMapping("/files/{fileId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun deleteFile(@LoginUser userId: Long, @PathVariable fileId: Long): Unit =
-        throw ApiException(ErrorCode.NOT_IMPLEMENTED)
+    fun deleteFile(@LoginUser userId: Long, @PathVariable fileId: Long) =
+        service.deleteFile(userId, fileId)
 }
