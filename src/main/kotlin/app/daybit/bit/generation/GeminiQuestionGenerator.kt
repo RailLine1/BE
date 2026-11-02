@@ -21,6 +21,7 @@ import java.time.Duration
 class GeminiQuestionGenerator(
     private val props: DaybitProperties,
     private val json: JsonMapper,
+    private val prompt: QuestionPrompt,
 ) : QuestionGenerator {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -36,12 +37,12 @@ class GeminiQuestionGenerator(
 
     override fun generate(request: GenerationRequest): List<GeneratedQuestion> {
         val body = mapOf(
-            "systemInstruction" to mapOf("parts" to listOf(mapOf("text" to SYSTEM_PROMPT))),
-            "contents" to listOf(mapOf("role" to "user", "parts" to listOf(mapOf("text" to userPrompt(request))))),
+            "systemInstruction" to mapOf("parts" to listOf(mapOf("text" to prompt.system))),
+            "contents" to listOf(mapOf("role" to "user", "parts" to listOf(mapOf("text" to prompt.user(request))))),
             "generationConfig" to mapOf(
                 "temperature" to 0.4,
                 "responseMimeType" to "application/json",
-                "responseSchema" to RESPONSE_SCHEMA,
+                "responseSchema" to prompt.geminiSchema(),
             ),
         )
         val response = callWithFallback(json.writeValueAsString(body))
@@ -91,55 +92,4 @@ class GeminiQuestionGenerator(
         evidencePage = path("evidencePage").asInt(-1),
         evidenceQuote = path("evidenceQuote").asString(""),
     )
-
-    private fun userPrompt(r: GenerationRequest): String = buildString {
-        appendLine("과목: ${r.courseName}")
-        appendLine("자료: ${r.fileTitle}")
-        appendLine("만들 문제 수: ${r.count}")
-        appendLine()
-        r.pages.forEach { p ->
-            appendLine("<page number=\"${p.page}\">")
-            appendLine(p.text)
-            appendLine("</page>")
-        }
-    }
-
-    companion object {
-        private val SYSTEM_PROMPT = """
-            너는 대학 강의 자료로 복습용 4지선다 문제를 만드는 출제자다.
-            규칙:
-            - 자료에 실제로 적힌 내용만으로 문제를 만든다. 자료 밖의 지식이 있어야 풀리는 문제는 만들지 않는다.
-            - 서로 다른 핵심 개념을 고르게 다룬다. 같은 개념의 문제는 최대 2개다.
-            - 보기는 정확히 4개이고, 정답은 하나다. 오답도 그럴듯하게 만든다. "모두 정답" 같은 보기는 쓰지 않는다.
-            - answerIndex 는 정답 보기의 번호(0~3)다.
-            - evidencePage 는 정답의 근거가 있는 page number 다.
-            - evidenceQuote 는 그 페이지 본문에서 정답의 근거가 되는 문장을 한 글자도 바꾸지 않고 그대로 복사한 것이다(10~200자).
-            - explanation 은 정답인 이유를 한두 문장으로 쓴다.
-            - concept 는 문제가 다루는 개념 이름(짧은 명사구)이다.
-            - 자료와 같은 언어로 쓴다.
-        """.trimIndent()
-
-        private val RESPONSE_SCHEMA = mapOf(
-            "type" to "OBJECT",
-            "properties" to mapOf(
-                "questions" to mapOf(
-                    "type" to "ARRAY",
-                    "items" to mapOf(
-                        "type" to "OBJECT",
-                        "properties" to mapOf(
-                            "concept" to mapOf("type" to "STRING"),
-                            "stem" to mapOf("type" to "STRING"),
-                            "choices" to mapOf("type" to "ARRAY", "items" to mapOf("type" to "STRING")),
-                            "answerIndex" to mapOf("type" to "INTEGER"),
-                            "explanation" to mapOf("type" to "STRING"),
-                            "evidencePage" to mapOf("type" to "INTEGER"),
-                            "evidenceQuote" to mapOf("type" to "STRING"),
-                        ),
-                        "required" to listOf("concept", "stem", "choices", "answerIndex", "explanation", "evidencePage", "evidenceQuote"),
-                    ),
-                ),
-            ),
-            "required" to listOf("questions"),
-        )
-    }
 }
