@@ -6,11 +6,13 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.ResourceAccessException
+import org.springframework.web.client.RestClientException
 import org.springframework.web.client.RestClientResponseException
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
+import java.io.IOException
 import java.time.Duration
 
 /**
@@ -29,7 +31,7 @@ class GeminiQuestionGenerator(
         .baseUrl(props.gemini.baseUrl)
         .requestFactory(SimpleClientHttpRequestFactory().apply {
             setConnectTimeout(Duration.ofSeconds(10))
-            setReadTimeout(Duration.ofSeconds(120))
+            setReadTimeout(props.gemini.readTimeout)
         })
         .build()
 
@@ -52,7 +54,7 @@ class GeminiQuestionGenerator(
     }
 
     /**
-     * 모델 목록을 앞에서부터 시도해요. 모델이 없어졌거나(404) 사용량 · 혼잡(429, 5xx) · 시간 초과면 다음 모델로 넘어가요.
+     * 모델 목록을 앞에서부터 시도해요. 모델이 없어졌거나(404) 사용량 · 혼잡(429, 5xx) · 시간 초과(연결 · 응답 본문 읽기)면 다음 모델로 넘어가요.
      * 그 밖의 오류(400 요청 형식, 401 · 403 키 문제)는 다른 모델로도 똑같이 실패하므로 바로 던져요.
      */
     private fun callWithFallback(body: String): String {
@@ -78,10 +80,19 @@ class GeminiQuestionGenerator(
             } catch (e: ResourceAccessException) {
                 log.warn("Gemini {} 응답 없음, 다음 모델로 넘어가요", model)
                 last = e
+            } catch (e: RestClientException) {
+                // 응답 헤더는 왔는데 본문을 읽다가 시간이 초과되면 ResourceAccessException 이 아니라 이걸로 감싸져 와요
+                if (!e.hasIoCause()) throw e
+                log.warn("Gemini {} 응답 본문 읽기 실패({}), 다음 모델로 넘어가요", model, e.rootCause()?.javaClass?.simpleName)
+                last = e
             }
         }
         throw last!!
     }
+
+    private fun Throwable.rootCause(): Throwable? = generateSequence(cause) { it.cause }.lastOrNull()
+
+    private fun Throwable.hasIoCause(): Boolean = generateSequence(cause) { it.cause }.any { it is IOException }
 
     private fun JsonNode.toQuestion() = GeneratedQuestion(
         concept = path("concept").asString(""),
