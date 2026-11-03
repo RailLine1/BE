@@ -2,29 +2,41 @@ package app.daybit.bit.generation
 
 import app.daybit.material.MaterialReadyEvent
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.context.event.EventListener
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
-import org.springframework.transaction.support.TransactionTemplate
-import tools.jackson.databind.json.JsonMapper
+import org.springframework.transaction.event.TransactionPhase
+import org.springframework.transaction.event.TransactionalEventListener
 import java.time.Clock
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import kotlin.math.ceil
 
 /**
+ * 작업 공간(#10)으로 생성을 맡기는 쪽. 요청을 보냈으면 true(결과는 나중에 비동기로 와요).
+ * 보내지 못했으면 출처를 Gemini 로 되돌리고 false 를 돌려줘요 (P-BIT-15).
+ */
+fun interface WorkspaceGeneration {
+    fun request(courseId: Long, fileId: Long, count: Int): Boolean
+}
+
+/** 작업 공간 생성이 실패 · 만료돼 Gemini 로 전환됐어요. 그 자료를 Gemini 로 다시 만들어요 */
+data class WorkspaceFallbackEvent(val fileId: Long)
+
+/**
  * 과목별 문제 은행을 채워요 (P-BIT-01, 02, 14).
  * - 자료가 ready 가 되면 그 자료로 문제를 만들어요.
  * - 출제 배치(#5)가 replenish() 로 모자란 범위를 다시 채워요. 생성이 실패한 자료도 이때 다시 시도돼요.
- * 퀴즈 출처가 작업 공간인 과목은 여기서 만들지 않아요(#10).
+ * - 퀴즈 출처가 작업 공간인 과목은 작업 공간에 맡기고, 실패하면 Gemini 로 만들어요 (#10, P-BIT-15).
  */
 @Service
 class QuestionBankService(
     private val jdbc: JdbcClient,
     private val generator: QuestionGenerator,
-    private val tx: TransactionTemplate,
-    private val json: JsonMapper,
+    private val store: QuestionStore,
+    private val workspace: ObjectProvider<WorkspaceGeneration>,
     private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -36,9 +48,17 @@ class QuestionBankService(
             .onFailure { log.warn("문제 생성 실패: fileId={}", event.fileId, it) }
     }
 
+    /** 전환(출처 · AI 상태 변경)이 커밋된 뒤에 돌아야 작업 공간으로 다시 보내지 않아요 */
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    fun onWorkspaceFallback(event: WorkspaceFallbackEvent) {
+        runCatching { generateForFile(event.fileId) }
+            .onFailure { log.warn("작업 공간 대신 Gemini 생성 실패: fileId={}", event.fileId, it) }
+    }
+
     /**
      * 범위(mid · final)의 안 낸 문제가 3일치보다 적으면 그 범위의 최신 자료로 문제를 더 만들어요 (P-BIT-02).
-     * 만든 문제 수를 돌려줘요.
+     * 만든 문제 수를 돌려줘요(작업 공간에 맡긴 경우 0).
      */
     fun replenish(courseId: Long, scope: String): Int {
         val course = course(courseId) ?: return 0
@@ -54,7 +74,7 @@ class QuestionBankService(
         return generate(fileId, course)
     }
 
-    /** 자료 하나로 문제를 만들어요. 만든 문제 수를 돌려줘요 */
+    /** 자료 하나로 문제를 만들어요. 만든 문제 수를 돌려줘요(작업 공간에 맡긴 경우 0) */
     fun generateForFile(fileId: Long): Int {
         val courseId = jdbc.sql("select course_id from files where id = :id and status = 'ready'").param("id", fileId)
             .query(Long::class.java).optional().orElse(null) ?: return 0
@@ -63,83 +83,20 @@ class QuestionBankService(
     }
 
     private fun generate(fileId: Long, course: CourseRow): Int {
-        if (course.quizSourceType != "default") return 0          // 작업 공간 출처는 #10 경로
+        val material = store.material(fileId) ?: return 0
+        val count = (target(course, material.scope) - unused(course.id, material.scope)).coerceIn(MIN_PER_FILE, MAX_PER_CALL)
+
+        if (course.quizSourceType == "workspace") {
+            val sent = workspace.ifAvailable?.request(course.id, fileId, count) ?: false
+            if (sent) return 0
+            // 보내지 못했으면 이미 Gemini 로 전환됐어요. 아래에서 바로 만들어요
+        }
         if (!generator.enabled) {
             log.info("Gemini 키가 없어 문제 생성을 건너뛰어요: fileId={}", fileId)
             return 0
         }
-        val file = jdbc.sql(
-            """
-            select f.title, d.kind from files f join folders d on d.id = f.folder_id where f.id = :id
-            """.trimIndent(),
-        ).param("id", fileId).query { rs, _ -> rs.getString("title") to rs.getString("kind") }.single()
-        val (title, kind) = file
-        val scope = kind.takeIf { it == "mid" || it == "final" }
-
-        val pages = jdbc.sql("select page_no, text from file_pages where file_id = :id order by page_no").param("id", fileId)
-            .query { rs, _ -> PageText(rs.getInt("page_no"), rs.getString("text") ?: "") }.list()
-            .filter { it.text.isNotBlank() }
-        if (pages.isEmpty()) return 0
-        val trimmed = trimToBudget(pages)
-
-        val count = (target(course, scope) - unused(course.id, scope)).coerceIn(MIN_PER_FILE, MAX_PER_CALL)
-        val request = GenerationRequest(course.name, title, trimmed, count)
-        val generated = callWithRetry(request)
-
-        val pageText = trimmed.associate { it.page to it.text }
-        val valid = generated.filter { it.isWellFormed(pageText.keys) }
-        if (valid.isEmpty()) return 0
-
-        tx.executeWithoutResult {
-            valid.groupBy { it.concept.trim().take(80) }.forEach { (concept, questions) ->
-                val conceptId = jdbc.sql(
-                    """
-                    insert into concepts (course_id, file_id, name, page_from, page_to, capacity)
-                    values (:courseId, :fileId, :name, :from, :to, :capacity)
-                    returning id
-                    """.trimIndent(),
-                ).param("courseId", course.id).param("fileId", fileId).param("name", concept)
-                    .param("from", questions.minOf { it.evidencePage }).param("to", questions.maxOf { it.evidencePage })
-                    .param("capacity", questions.size).query(Long::class.java).single()
-
-                questions.forEach { q ->
-                    jdbc.sql(
-                        """
-                        insert into questions (course_id, concept_id, scope, stem, choices, answer_idx, explanation,
-                                               evidence_file_id, evidence_page, source, verified)
-                        values (:courseId, :conceptId, :scope, :stem, cast(:choices as jsonb), :answer, :explanation,
-                                :fileId, :page, 'gemini', :verified)
-                        """.trimIndent(),
-                    ).param("courseId", course.id).param("conceptId", conceptId).param("scope", scope)
-                        .param("stem", q.stem.trim()).param("choices", json.writeValueAsString(q.choices.map { it.trim() }))
-                        .param("answer", q.answerIdx).param("explanation", q.explanation.trim())
-                        .param("fileId", fileId).param("page", q.evidencePage)
-                        .param("verified", isGrounded(q, pageText.getValue(q.evidencePage)))
-                        .update()
-                }
-            }
-        }
-        return valid.size
+        return store.save(material, callWithRetry(material.request(count)), "gemini")
     }
-
-    // ---------- 검증 ----------
-
-    /** 형식이 맞지 않는 문제는 저장하지 않아요 */
-    private fun GeneratedQuestion.isWellFormed(pages: Set<Int>): Boolean =
-        concept.isNotBlank() && stem.isNotBlank() && explanation.isNotBlank() &&
-            choices.size == 4 && choices.all { it.isNotBlank() } && choices.map { it.trim() }.toSet().size == 4 &&
-            answerIdx in 0..3 && evidencePage in pages
-
-    /**
-     * 근거 검증 (07_핵심기술 3): 모델이 옮긴 근거 문장이 근거 페이지 본문에 실제로 있는지 봐요.
-     * PDF 추출과 모델 출력의 줄바꿈 · 공백이 달라서 공백을 모두 지우고 비교해요.
-     */
-    internal fun isGrounded(q: GeneratedQuestion, pageText: String): Boolean {
-        val quote = normalize(q.evidenceQuote)
-        return quote.length >= MIN_QUOTE && normalize(pageText).contains(quote)
-    }
-
-    private fun normalize(s: String) = s.lowercase().replace(Regex("\\s+"), "")
 
     // ---------- 목표 개수 (P-BIT-02) ----------
 
@@ -179,12 +136,6 @@ class QuestionBankService(
         throw last!!
     }
 
-    /** 입력이 너무 길면 앞에서부터 예산까지만 보내요 */
-    private fun trimToBudget(pages: List<PageText>): List<PageText> {
-        var total = 0
-        return pages.takeWhile { total += it.text.length; total <= MAX_CHARS }.ifEmpty { listOf(pages.first().copy(text = pages.first().text.take(MAX_CHARS))) }
-    }
-
     private data class CourseRow(
         val id: Long,
         val name: String,
@@ -208,8 +159,6 @@ class QuestionBankService(
         private const val LOW_WATER_DAYS = 3      // 하루 1문항 × 3일
         private const val MIN_PER_FILE = 3
         private const val MAX_PER_CALL = 10
-        private const val MIN_QUOTE = 10
-        private const val MAX_CHARS = 80_000
         private const val ATTEMPTS = 2
     }
 }

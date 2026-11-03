@@ -13,6 +13,8 @@ import org.springframework.security.config.annotation.web.invoke
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.crypto.factory.PasswordEncoderFactories
 import org.springframework.security.crypto.password.PasswordEncoder
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver
 import org.springframework.security.web.AuthenticationEntryPoint
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.access.AccessDeniedHandler
@@ -43,11 +45,15 @@ class SecurityConfig(
                 authorize("/swagger-ui/**", permitAll)
                 authorize("/swagger-ui.html", permitAll)
                 authorize("/mcp/**", permitAll)                  // 커넥터: 주소 안의 토큰으로 자체 인증 (P-AI-02)
-                authorize("/internal/**", permitAll)             // 작업 공간 결과: 서명으로 자체 검증 (P-AI-09)
+                authorize("/internal/**", permitAll)             // 작업 공간 워크플로: GitHub OIDC 토큰으로 자체 검증 (결정 D11)
                 authorize("/local-files/**", permitAll)          // 로컬 저장소 임시 URL: 서명으로 자체 검증
                 authorize(anyRequest, authenticated)
             }
             oauth2ResourceServer {
+                // /internal 은 GitHub Actions OIDC 토큰을 Bearer 로 보내요. 우리 JWT 로 검사하지 않고 컨트롤러가 직접 확인해요
+                bearerTokenResolver = BearerTokenResolver { request ->
+                    if (request.requestURI.startsWith("/internal/")) null else defaultBearer.resolve(request)
+                }
                 jwt { }
                 authenticationEntryPoint = entryPoint()
                 accessDeniedHandler = deniedHandler()
@@ -74,6 +80,8 @@ class SecurityConfig(
         }
         return UrlBasedCorsConfigurationSource().apply { registerCorsConfiguration("/**", config) }
     }
+
+    private val defaultBearer = DefaultBearerTokenResolver()
 
     private fun entryPoint() = AuthenticationEntryPoint { _, response, _ ->
         write(response, ErrorCode.UNAUTHORIZED)

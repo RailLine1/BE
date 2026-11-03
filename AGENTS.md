@@ -71,4 +71,5 @@ GitHub Flow에 시연용 릴리스 브랜치를 더한 방식이다.
 - Kotlin은 주석 안의 `/*`를 중첩 주석 시작으로 본다. 주석에 `https://*.도메인` 같은 패턴을 쓰면 파일 전체가 깨진다.
 - Spring Boot 4에서 `AutoConfigureMockMvc`의 패키지는 `org.springframework.boot.webmvc.test.autoconfigure`다.
 - Railway Postgres의 `DATABASE_URL`은 `postgresql://` 형식이라 JDBC가 읽지 못한다. 운영 설정은 `PG*` 변수로 JDBC URL을 조립한다(`docs/deploy.md`).
+- Spring Security 리소스 서버는 `permitAll` 경로라도 `Authorization: Bearer`가 있으면 우리 JWT로 검사해 401을 낸다. 다른 토큰을 Bearer로 받는 경로(`/internal/**`)는 `SecurityConfig`의 `bearerTokenResolver`에서 제외한다.
 - 새 환경 변수를 추가하면 `docs/deploy.md` 표를 갱신하고 PR에 명시한다. 배포 담당이 Railway에 값을 넣어야 동작한다.
