@@ -53,7 +53,7 @@ Postgres 서비스가 제공하는 **`DATABASE_URL`은 넣지 않습니다.** `p
 | 이름 | 값 | 설명 |
 |---|---|---|
 | `DAYBIT_GEMINI_API_KEY` | Google AI Studio API 키 | https://aistudio.google.com/apikey 에서 발급합니다 |
-| `DAYBIT_GEMINI_MODEL` | 기본값 `gemini-2.5-flash` | 다른 모델을 쓸 때만 넣습니다 |
+| `DAYBIT_GEMINI_MODEL` | 기본값 `gemini-3.8-flash,gemini-flash-latest,gemini-3.5-flash,gemini-flash-lite-latest` | 쉼표로 여러 개를 넣으면 앞에서부터 시도합니다. 모델이 없어졌거나 혼잡하면 다음 모델을 씁니다. 바꿀 일이 있을 때만 넣습니다 |
 
 ### 학습자료 저장 (Cloudflare R2)
 

@@ -37,7 +37,10 @@ data class DaybitProperties(
     /** 기본 퀴즈 출처 (P-BIT-14). 키가 비어 있으면 문제를 만들지 않아요 */
     data class Gemini(
         val apiKey: String = "",
-        val model: String = "gemini-2.5-flash",
+        /** 앞에서부터 시도해요. 없어졌거나(404) 혼잡하면(429 · 5xx) 다음 모델로 넘어가요 */
+        val models: List<String> = listOf("gemini-3.8-flash", "gemini-flash-latest", "gemini-3.5-flash", "gemini-flash-lite-latest"),
+        /** 테스트에서 가짜 서버로 바꿀 때만 써요 */
+        val baseUrl: String = "https://generativelanguage.googleapis.com/v1beta",
     )
 
     data class S3(

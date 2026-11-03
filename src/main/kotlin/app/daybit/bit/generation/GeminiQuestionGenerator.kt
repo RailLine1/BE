@@ -3,7 +3,10 @@ package app.daybit.bit.generation
 import app.daybit.global.config.DaybitProperties
 import org.springframework.http.MediaType
 import org.springframework.http.client.SimpleClientHttpRequestFactory
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import org.springframework.web.client.ResourceAccessException
+import org.springframework.web.client.RestClientResponseException
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
 import tools.jackson.databind.JsonNode
@@ -19,9 +22,10 @@ class GeminiQuestionGenerator(
     private val props: DaybitProperties,
     private val json: JsonMapper,
 ) : QuestionGenerator {
+    private val log = LoggerFactory.getLogger(javaClass)
 
     private val client = RestClient.builder()
-        .baseUrl("https://generativelanguage.googleapis.com/v1beta")
+        .baseUrl(props.gemini.baseUrl)
         .requestFactory(SimpleClientHttpRequestFactory().apply {
             setConnectTimeout(Duration.ofSeconds(10))
             setReadTimeout(Duration.ofSeconds(120))
@@ -40,17 +44,42 @@ class GeminiQuestionGenerator(
                 "responseSchema" to RESPONSE_SCHEMA,
             ),
         )
-        val response = client.post()
-            .uri("/models/{model}:generateContent", props.gemini.model)
-            .header("x-goog-api-key", props.gemini.apiKey)
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(json.writeValueAsString(body))
-            .retrieve()
-            .body<String>() ?: error("Gemini 응답이 비었어요")
-
+        val response = callWithFallback(json.writeValueAsString(body))
         val text = json.readTree(response).path("candidates").path(0).path("content").path("parts").path(0).path("text").asString()
         if (text.isNullOrBlank()) error("Gemini 응답에 내용이 없어요")
         return json.readTree(text).path("questions").toList().map { it.toQuestion() }
+    }
+
+    /**
+     * 모델 목록을 앞에서부터 시도해요. 모델이 없어졌거나(404) 사용량 · 혼잡(429, 5xx) · 시간 초과면 다음 모델로 넘어가요.
+     * 그 밖의 오류(400 요청 형식, 401 · 403 키 문제)는 다른 모델로도 똑같이 실패하므로 바로 던져요.
+     */
+    private fun callWithFallback(body: String): String {
+        val models = props.gemini.models.map { it.trim() }.filter { it.isNotEmpty() }
+        if (models.isEmpty()) error("Gemini 모델이 설정되지 않았어요")
+        var last: Exception? = null
+        for (model in models) {
+            try {
+                val response = client.post()
+                    .uri("/models/{model}:generateContent", model)
+                    .header("x-goog-api-key", props.gemini.apiKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body<ByteArray>()?.toString(Charsets.UTF_8) ?: error("Gemini 응답이 비었어요")   // charset 이 빠져도 UTF-8
+                log.info("문제 생성 모델: {}", model)
+                return response
+            } catch (e: RestClientResponseException) {
+                val code = e.statusCode.value()
+                if (code != 404 && code != 429 && code < 500) throw e
+                log.warn("Gemini {} 실패({}), 다음 모델로 넘어가요", model, code)
+                last = e
+            } catch (e: ResourceAccessException) {
+                log.warn("Gemini {} 응답 없음, 다음 모델로 넘어가요", model)
+                last = e
+            }
+        }
+        throw last!!
     }
 
     private fun JsonNode.toQuestion() = GeneratedQuestion(
