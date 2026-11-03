@@ -42,6 +42,8 @@ data class DaybitProperties(
         val models: List<String> = listOf("gemini-3.8-flash", "gemini-flash-latest", "gemini-3.5-flash", "gemini-flash-lite-latest"),
         /** 테스트에서 가짜 서버로 바꿀 때만 써요 */
         val baseUrl: String = "https://generativelanguage.googleapis.com/v1beta",
+        /** 모델 하나의 응답을 기다리는 시간. 생각(thinking)이 긴 모델은 3분 넘게 걸리기도 해요 */
+        val readTimeout: java.time.Duration = java.time.Duration.ofMinutes(5),
     )
 
     data class S3(

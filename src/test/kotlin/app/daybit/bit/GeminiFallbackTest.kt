@@ -27,11 +27,23 @@ class GeminiFallbackTest {
     fun stop() = server.stop(0)
 
     /** 모델 이름 → (상태 코드, 본문) */
-    private fun generator(responses: Map<String, Pair<Int, String>>, models: List<String>): GeminiQuestionGenerator {
+    private fun generator(
+        responses: Map<String, Pair<Int, String>>,
+        models: List<String>,
+        stallBody: Set<String> = emptySet(),
+        readTimeout: Duration = Duration.ofSeconds(5),
+    ): GeminiQuestionGenerator {
         server.createContext("/") { ex ->
             val model = ex.requestURI.path.substringAfter("/models/").substringBefore(":")
             calls += model
             bodies += String(ex.requestBody.readAllBytes(), Charsets.UTF_8)
+            if (model in stallBody) {
+                // 헤더만 보내고 본문을 늦게 보내요 (생각이 긴 모델에서 본 상황)
+                ex.sendResponseHeaders(200, 0)
+                Thread.sleep(1500)
+                runCatching { ex.responseBody.close() }
+                return@createContext
+            }
             val (code, body) = responses[model] ?: (500 to "{}")
             val bytes = body.toByteArray()
             ex.sendResponseHeaders(code, bytes.size.toLong())
@@ -42,7 +54,9 @@ class GeminiFallbackTest {
             publicBaseUrl = "http://localhost",
             jwt = DaybitProperties.Jwt("x".repeat(32), Duration.ofMinutes(1), Duration.ofDays(1)),
             cors = DaybitProperties.Cors(emptyList()),
-            gemini = DaybitProperties.Gemini(apiKey = "test", models = models, baseUrl = "http://127.0.0.1:${server.address.port}"),
+            gemini = DaybitProperties.Gemini(
+                apiKey = "test", models = models, baseUrl = "http://127.0.0.1:${server.address.port}", readTimeout = readTimeout,
+            ),
         )
         val json = JsonMapper()
         return GeminiQuestionGenerator(props, json, QuestionPrompt(json))
@@ -68,6 +82,14 @@ class GeminiFallbackTest {
         assertThat(calls).containsExactly("old", "busy", "good")
         assertThat(questions.single().answerIdx).isEqualTo(2)
         assertThat(questions.single().concept).isEqualTo("교착 상태")
+    }
+
+    @Test
+    fun `응답 본문을 읽다가 시간이 초과되면 다음 모델로 만들어요`() {
+        val gen = generator(mapOf("good" to (200 to okBody)), listOf("slow", "good"), stallBody = setOf("slow"), readTimeout = Duration.ofMillis(500))
+        val questions = gen.generate(request)
+        assertThat(calls).containsExactly("slow", "good")
+        assertThat(questions).hasSize(1)
     }
 
     @Test
