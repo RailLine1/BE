@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "properties": {
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "concept": { "type": "string" },
+          "stem": { "type": "string" },
+          "choices": { "type": "array", "items": { "type": "string" } },
+          "answerIndex": { "type": "integer" },
+          "explanation": { "type": "string" },
+          "evidencePage": { "type": "integer" },
+          "evidenceQuote": { "type": "string" }
+        },
+        "required": ["concept", "stem", "choices", "answerIndex", "explanation", "evidencePage", "evidenceQuote"]
+      }
+    }
+  },
+  "required": ["questions"]
+}
