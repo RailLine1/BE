@@ -35,10 +35,11 @@ class FakeGithubApi : GithubApi {
     val dispatched = CopyOnWriteArrayList<Map<String, String>>()
     val created = CopyOnWriteArrayList<String>()
     @Volatile var dispatchFails = false
+    @Volatile var accountFails = false
     private val ids = AtomicLong(7_000_000)
 
     override fun exchangeToken(code: String, redirectUri: String) = "gho_$code"
-    override fun account(token: String) = GithubAccount(token.removePrefix("gho_").hashCode().toLong().let { if (it < 0) -it else it } + ids.get(), "owner-" + token.removePrefix("gho_"))
+    override fun account(token: String) = if (accountFails) error("GitHub 503") else GithubAccount(token.removePrefix("gho_").hashCode().toLong().let { if (it < 0) -it else it } + ids.get(), "owner-" + token.removePrefix("gho_"))
     override fun createFromTemplate(token: String, template: String, owner: String, name: String): String {
         created += "$template -> $owner/$name"
         return "$owner/$name"
@@ -79,6 +80,7 @@ class WorkspaceFlowTest(
     fun reset() {
         github.dispatched.clear()
         github.dispatchFails = false
+        github.accountFails = false
         gemini.enabled = true
         gemini.respond = { emptyList() }
         gemini.requests.clear()
@@ -113,6 +115,24 @@ class WorkspaceFlowTest(
             jsonPath("$.url") { value("https://codespaces.new/$repo?quickstart=1") }
             jsonPath("$.command") { value("daybit-setup codex") }
         }
+    }
+
+    @Test
+    fun `1단계 실패는 앱으로 error 를 붙여 돌려보내요 - 계정 조회 실패, 이미 연결한 GitHub 와 다른 계정`() {
+        // GitHub 계정 조회가 실패해도 500 이 아니라 앱으로 돌아가요
+        val user = f.newUser()
+        github.accountFails = true
+        assertThat(callback(user)).isEqualTo("daybit://workspace?error=GITHUB_FAILED")
+        github.accountFails = false
+
+        // 로그인용으로 다른 GitHub 를 이미 연결했으면 작업 공간을 만들지 않아요
+        val other = f.newUser()
+        jdbc.sql("update users set github_id = :g, github_login = 'someone-else' where id = :u")
+            .param("g", 900_000_000L + other.id).param("u", other.id).update()
+        assertThat(callback(other)).isEqualTo("daybit://workspace?error=GITHUB_ACCOUNT_MISMATCH")
+        val repos = jdbc.sql("select count(*) from workspaces where user_id = :u and github_repo is not null").param("u", other.id)
+            .query(Int::class.java).single()
+        assertThat(repos).isZero()
     }
 
     // ---------- 3단계 ----------
@@ -255,6 +275,12 @@ class WorkspaceFlowTest(
 
     /** 1단계를 끝까지 돌고 저장소 이름을 돌려줘요 */
     private fun link(user: TestUser): String {
+        assertThat(callback(user)).isEqualTo("daybit://workspace?workspace=linked")
+        return jdbc.sql("select github_repo from workspaces where user_id = :u").param("u", user.id).query(String::class.java).single()
+    }
+
+    /** 1단계 시작 → GitHub 콜백까지 돌고, 앱으로 돌아가는 주소를 돌려줘요 */
+    private fun callback(user: TestUser): String {
         val url = mvc.post("/api/v1/me/workspace/github") {
             header("Authorization", user.bearer)
             contentType = MediaType.APPLICATION_JSON
@@ -265,8 +291,7 @@ class WorkspaceFlowTest(
         val back = mvc.get("/api/v1/auth/github/callback") {
             param("code", "c${user.id}"); param("state", java.net.URLDecoder.decode(query.getFirst("state"), Charsets.UTF_8))
         }.andExpect { status { isFound() } }.andReturn().response.getHeader("Location")!!
-        assertThat(back).isEqualTo("daybit://workspace?workspace=linked")
-        return jdbc.sql("select github_repo from workspaces where user_id = :u").param("u", user.id).query(String::class.java).single()
+        return back
     }
 
     private fun readyWorkspace(user: TestUser): String {

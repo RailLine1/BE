@@ -95,16 +95,20 @@ class WorkspaceService(
     /** GitHub 콜백에서 불러요. 저장소를 만들고 토큰을 암호화해 저장해요. 실패하면 앱으로 돌려보낼 error 값 */
     @Transactional
     override fun link(userId: Long, code: String, redirectUri: String): String? {
-        val token = try {
-            github.exchangeToken(code, redirectUri)
+        val (token, account) = try {
+            val token = github.exchangeToken(code, redirectUri)
+            token to github.account(token)
         } catch (e: Exception) {
-            log.warn("작업 공간 GitHub 토큰 교환 실패", e)
+            log.warn("작업 공간 GitHub 토큰 교환 · 계정 조회 실패", e)
             return "GITHUB_FAILED"
         }
-        val account = github.account(token)
         val owner = jdbc.sql("select id from users where github_id = :g").param("g", account.id)
             .query(Long::class.java).optional().orElse(null)
         if (owner != null && owner != userId) return ErrorCode.GITHUB_ALREADY_LINKED.name
+        // 이미 다른 GitHub 계정을 연결했으면 그 계정으로만 작업 공간을 만들어요 (로그인 계정과 저장소 주인이 달라지지 않게)
+        val otherAccount = jdbc.sql("select count(*) from users where id = :u and github_id is not null and github_id <> :g")
+            .param("u", userId).param("g", account.id).query(Int::class.java).single() > 0
+        if (otherAccount) return GITHUB_ACCOUNT_MISMATCH
         // 작업 공간은 GitHub 연결이 전제예요 (P-ACC-06). 아직 연결 안 했으면 같이 연결해요
         jdbc.sql("update users set github_id = :g, github_login = :l where id = :u and github_id is null")
             .param("g", account.id).param("l", account.login).param("u", userId).update()
@@ -311,5 +315,7 @@ class WorkspaceService(
 
     companion object {
         private const val SAMPLE_COUNT = 3
+        /** 1단계: 이미 연결한 GitHub 와 다른 계정으로 허용했어요 (`?error=` 값) */
+        const val GITHUB_ACCOUNT_MISMATCH = "GITHUB_ACCOUNT_MISMATCH"
     }
 }

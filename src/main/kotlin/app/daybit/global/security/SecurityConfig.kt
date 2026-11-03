@@ -45,7 +45,7 @@ class SecurityConfig(
                 authorize("/swagger-ui/**", permitAll)
                 authorize("/swagger-ui.html", permitAll)
                 authorize("/mcp/**", permitAll)                  // 커넥터: 주소 안의 토큰으로 자체 인증 (P-AI-02)
-                authorize("/internal/**", permitAll)             // 작업 공간 결과: 서명으로 자체 검증 (P-AI-09)
+                authorize("/internal/**", permitAll)             // 작업 공간 워크플로: GitHub OIDC 토큰으로 자체 검증 (결정 D11)
                 authorize("/local-files/**", permitAll)          // 로컬 저장소 임시 URL: 서명으로 자체 검증
                 authorize(anyRequest, authenticated)
             }

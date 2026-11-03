@@ -195,7 +195,7 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 | ✅ | POST | `/me/workspace/{ai}/setup` | 로그인 | 2단계: Codespace 주소 `{url, command}`. 1단계 전이면 409 | P-AI-08 |
 | ✅ | POST | `/me/workspace/{ai}/test` | 로그인 | 3단계: 샘플 3문항 워크플로 실행. 결과는 `GET /me/workspace`로 확인 → 성공 시 `ready` | P-AI-08 |
 
-- 1단계 실패 시 `redirect`에 붙는 `error`: `GITHUB_CANCELLED`, `GITHUB_FAILED`, `GITHUB_ALREADY_LINKED`, `WORKSPACE_REPO_FAILED`(템플릿 복사 실패)
+- 1단계 실패 시 `redirect`에 붙는 `error`: `GITHUB_CANCELLED`, `GITHUB_FAILED`, `GITHUB_ALREADY_LINKED`, `GITHUB_ACCOUNT_MISMATCH`(이미 연결한 GitHub와 다른 계정으로 허용), `WORKSPACE_REPO_FAILED`(템플릿 복사 실패)
 - 3단계는 바로 돌아오고(`testing: true`) 워크플로가 끝나면 `ready`가 되거나 `lastError`가 채워집니다. 앱은 몇 초마다 `GET /me/workspace`를 다시 부릅니다.
 - `ready`가 된 AI만 과목 환경설정의 퀴즈 출처로 고를 수 있습니다(P-AI-09). 그 과목은 자료가 `ready`가 될 때마다 작업 공간 워크플로가 문제를 만듭니다. 실패 · 시간 초과(30분)면 즉시 Gemini로 전환하고 관리자 · 공동 관리자에게 알립니다(P-BIT-15). 그때 AI 상태는 `expired`가 됩니다.
 
