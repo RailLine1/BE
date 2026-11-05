@@ -15,8 +15,9 @@ import org.springframework.web.bind.annotation.RestController
 class GithubLinkController(private val github: GithubAuthService) {
 
     @Operation(
+        deprecated = true,
         summary = "GitHub 계정 연결 주소 (P-ACC-06)",
-        description = "받은 url 을 외부 브라우저로 열어요. 연결이 끝나면 redirect 로 `?code=` 가 붙어 돌아오고, " +
+        description = "**변경 예정** · AI 작업 공간과 함께 바뀌거나 없어질 수 있어요. 받은 url 을 외부 브라우저로 열어요. 연결이 끝나면 redirect 로 `?code=` 가 붙어 돌아오고, " +
             "exchange 로 바꾼 토큰은 같은 계정이에요. 다른 계정에 연결된 GitHub 면 `?error=GITHUB_ALREADY_LINKED`",
     )
     @PostMapping("/link")

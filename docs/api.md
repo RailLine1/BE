@@ -186,7 +186,9 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 | ✅ | GET | `/me/connector` | 로그인 | 커넥터 주소와 클라이언트별 최근 호출. 처음 부르면 발급하고 전체 주소(`fullUrlShown: true`), 이후는 가린 주소 | P-AI-02, 04 |
 | ✅ | POST | `/me/connector/reissue` | 로그인 | 새 주소 발급, 이전 주소 즉시 무효 | P-AI-02 |
 
-### AI 작업 공간 **[검증 필요]**
+### AI 작업 공간 **[변경 예정]**
+
+> AI 출제 방식을 바꾸는 중이라 이 절의 API, `POST /me/github/link`, 과목 설정의 `quizSource: workspace`는 바뀌거나 없어질 수 있습니다. 아직 연동하지 않습니다. Swagger에도 취소선(deprecated)으로 표시됩니다.
 
 | 상태 | 메서드 | 경로 | 권한 | 요약 | 정책 |
 |---|---|---|---|---|---|
