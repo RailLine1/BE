@@ -1,5 +1,6 @@
 package app.daybit.auth
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Pattern
@@ -41,6 +42,8 @@ data class AuthUser(
 
 data class AuthResponse(
     val user: AuthUser,
+    // Kotlin is- 이름은 명세 생성기가 firstLogin 으로 바꿔서, 실제 응답 이름으로 고정해요
+    @get:JsonProperty("isFirstLogin")
     @field:Schema(description = "true 면 서비스 소개(onboarding)를 보여줘요 (P-ACC-05)")
     val isFirstLogin: Boolean,
     val tokens: TokenPair,
@@ -50,6 +53,8 @@ data class GithubExchangeRequest(@field:NotBlank val code: String)
 
 data class GithubAuthResponse(
     val user: AuthUser,
+    // Kotlin is- 이름은 명세 생성기가 firstLogin 으로 바꿔서, 실제 응답 이름으로 고정해요
+    @get:JsonProperty("isFirstLogin")
     @field:Schema(description = "true 면 서비스 소개(onboarding)를 보여줘요 (P-ACC-05)")
     val isFirstLogin: Boolean,
     @field:Schema(description = "GitHub 로 처음 가입한 사용자. 임시 닉네임이라 닉네임 입력(PATCH /me)을 거쳐요 (P-ACC-04)")
