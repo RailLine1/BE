@@ -23,6 +23,7 @@ enum class ErrorCode(val status: HttpStatus, val defaultMessage: String) {
     BIT_CLOSED(HttpStatus.CONFLICT, "마감된 문제예요."),
     WORKSPACE_NOT_LINKED(HttpStatus.CONFLICT, "AI 작업 공간 1단계(GitHub 연결)를 먼저 해 주세요."),
     COURSE_ENDED(HttpStatus.CONFLICT, "수강 기간이 끝난 과목이에요."),
+    NO_QUESTION_READY(HttpStatus.CONFLICT, "낼 문제가 없어요. 처리 완료된 자료와 문제가 있는지 확인해 주세요."),
     NOT_IMPLEMENTED(HttpStatus.NOT_IMPLEMENTED, "아직 준비 중인 기능이에요."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "잠시 후 다시 시도해 주세요."),
 }

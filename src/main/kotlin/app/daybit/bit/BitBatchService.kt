@@ -47,6 +47,10 @@ class BitBatchService(
         return created
     }
 
+    /** 한 과목만 바로 준비해요(개발자 전용 API). 새로 만들었으면 true */
+    fun prepareOne(courseId: Long, date: LocalDate, now: OffsetDateTime): Boolean =
+        tx.execute { prepareCourse(courseId, date, now) } == true
+
     private fun prepareCourse(courseId: Long, date: LocalDate, now: OffsetDateTime): Boolean {
         // 같은 과목을 동시에 준비하지 않게 과목 행을 잠가요
         jdbc.sql("select id from courses where id = :id for update").param("id", courseId).query(Long::class.java).single()

@@ -45,6 +45,7 @@ Postgres 서비스가 제공하는 **`DATABASE_URL`은 넣지 않습니다.** `p
 | 이름 | 기본값 | 설명 |
 |---|---|---|
 | `DAYBIT_SWAGGER_ENABLED` | `true` | 해커톤 기간에는 켜 둡니다. FE가 배포 서버의 `/v3/api-docs`로 API 클라이언트를 생성합니다 |
+| `DAYBIT_DEV_TOOLS` | `false` | `true`면 개발자 전용 API(`/api/v1/dev/**`: Bit 바로 열기, 내 풀이 지우기, Bit 지우기)를 켭니다. 점검 · 시연 기간에만 켜고 끝나면 지웁니다 (`docs/api.md` 개발자 전용) |
 
 ### 문제 생성 (Gemini)
 

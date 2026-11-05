@@ -55,6 +55,7 @@ Daybit 백엔드 API의 공통 규칙, 오류 코드, 엔드포인트 목록입�
 | 409 | `ALREADY_ATTEMPTED` | 같은 Bit 두 번째 제출 (P-BIT-09) |
 | 409 | `BIT_CLOSED` | 마감된 Bit 시작 · 제출 (P-BIT-05) |
 | 409 | `COURSE_ENDED` | 종료된 과목 구독 (P-EXP-04) |
+| 409 | `NO_QUESTION_READY` | 개발자 전용 Bit 열기에서 낼 문제가 없음(처리 완료 자료 · 검증된 문제 없음) |
 | 409 | `WORKSPACE_NOT_LINKED` | AI 작업 공간 1단계(GitHub 연결) 전에 2 · 3단계 요청 |
 | 413 | `FILE_TOO_LARGE` | 업로드 파일이 50MB 초과 (P-MAT-02) |
 | 500 | `INTERNAL_ERROR` | 서버 오류 |
@@ -207,6 +208,16 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 |---|---|---|
 | GET | `/internal/workspace/jobs/{jobId}` | 작업 내용: `kind`(`test` · `generate`), `ai`, `count`, `system`(출제 규칙), `schema`(응답 스키마), `prompt`(자료 본문) |
 | POST | `/internal/workspace/jobs/{jobId}/result` | `{"questions":[...]}`(스키마와 같은 형식) 또는 `{"error":"..."}` → 204 |
+
+### 개발자 전용
+
+개발 · 시연 때만 켭니다. 환경 변수 `DAYBIT_DEV_TOOLS=true`일 때만 경로가 생기고 Swagger에 `0. 개발자 전용`으로 보입니다. 꺼져 있으면 404입니다. 정책서 규칙은 바꾸지 않고, 17시를 기다리거나 하루 한 번 제한에 막히지 않게만 합니다(#42). 이 API로 만든 Bit도 평소 Bit와 똑같이 마감 · 아카이브되므로, 시연 전에 `DELETE /dev/bits/{bitId}`로 정리합니다.
+
+| 상태 | 메서드 | 경로 | 권한 | 요약 | 정책 |
+|---|---|---|---|---|---|
+| ✅ | POST | `/dev/courses/{courseId}/bit/open-now` | 🅰 🅲 | 지금 Bit 날짜(17시 전이면 어제)의 Bit가 없으면 평소 규칙으로 바로 만듭니다. 이미 있으면 그대로 반환(`created: false`). 낼 문제가 없으면 409 `NO_QUESTION_READY` | P-BIT-03, 04, 06 |
+| ✅ | POST | `/dev/bits/{bitId}/reset-me` | 🅰 🅲 🅼 | 이 Bit의 내 풀이를 지워 다시 시작할 수 있게 합니다 → 204. 연속 일수 · 정답 수 같은 누적 기록은 되돌리지 않습니다 | P-BIT-09 |
+| ✅ | DELETE | `/dev/bits/{bitId}` | 🅰 🅲 | 점검 · 시연 흔적 정리: Bit와 풀이 · 메모를 지우고(아카이브에서도 사라짐) 낸 문제를 다시 낼 수 있게 돌려놓습니다 → 204. 누적 기록은 되돌리지 않습니다 | P-ARC-01 |
 
 ## MCP 서버
 
