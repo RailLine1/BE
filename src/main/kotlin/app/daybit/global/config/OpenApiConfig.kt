@@ -51,7 +51,8 @@ class OpenApiConfig {
             .flatMap { it.tags.orEmpty() }
             .distinct()
             .sortedBy { it.substringBefore('.').toIntOrNull() ?: Int.MAX_VALUE }
-        api.tags = names.map { Tag().name(it) }
+        val described = api.tags.orEmpty().associateBy { it.name } // @Tag 설명(변경 예정 등)은 살려요
+        api.tags = names.map { described[it] ?: Tag().name(it) }
     }
 
     companion object {

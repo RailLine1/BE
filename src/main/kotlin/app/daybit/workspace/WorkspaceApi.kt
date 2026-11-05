@@ -46,27 +46,27 @@ data class WorkspaceGithubRequest(
     @field:NotBlank val redirect: String,
 )
 
-/** [검증 필요] P-AI-07~09, 결정 D11. PoC 결과에 따라 바뀔 수 있어요. */
-@Tag(name = "11. AI 작업 공간")
+/** [검증 필요] P-AI-07~09, 결정 D11. 출제 방식을 바꾸는 중이라 Swagger 에 변경 예정으로 표시해요. */
+@Tag(name = "11. AI 작업 공간", description = "**변경 예정** · AI 출제 방식을 바꾸는 중이라 이 묶음은 바뀌거나 없어질 수 있어요. 아직 연동하지 마세요.")
 @RestController
 @RequestMapping("/api/v1/me/workspace")
 class WorkspaceController(private val service: WorkspaceService, private val github: GithubAuthService) {
 
-    @Operation(summary = "작업 공간 상태 (P-AI-07)")
+    @Operation(deprecated = true, summary = "작업 공간 상태 (P-AI-07)")
     @GetMapping
     fun get(@LoginUser userId: Long): WorkspaceResponse = service.status(userId)
 
-    @Operation(summary = "1단계: GitHub 권한 요청 URL (P-AI-08)", description = "받은 url 을 외부 브라우저로 열어요. 허용하면 내 GitHub 에 비공개 저장소 daybit-workspace 가 생겨요")
+    @Operation(deprecated = true, summary = "1단계: GitHub 권한 요청 URL (P-AI-08)", description = "받은 url 을 외부 브라우저로 열어요. 허용하면 내 GitHub 에 비공개 저장소 daybit-workspace 가 생겨요")
     @PostMapping("/github")
     fun github(@LoginUser userId: Long, @Valid @RequestBody req: WorkspaceGithubRequest): RedirectResponse =
         RedirectResponse(github.authorizeUrl(req.redirect, linkUserId = userId, workspace = true))
 
-    @Operation(summary = "2단계: Codespace 열기 URL (P-AI-08)", description = "url 을 열고 터미널에서 command 를 실행해 구독 로그인해요. 1단계 전이면 409 WORKSPACE_NOT_LINKED")
+    @Operation(deprecated = true, summary = "2단계: Codespace 열기 URL (P-AI-08)", description = "url 을 열고 터미널에서 command 를 실행해 구독 로그인해요. 1단계 전이면 409 WORKSPACE_NOT_LINKED")
     @PostMapping("/{ai}/setup")
     fun setup(@LoginUser userId: Long, @PathVariable ai: WorkspaceAi): RedirectResponse =
         service.setup(userId, ai)
 
-    @Operation(summary = "3단계: 샘플 3문항 테스트 실행 (P-AI-08)", description = "워크플로를 실행하고 바로 돌아와요(testing=true). GET /me/workspace 로 결과를 확인해요. 성공하면 status=ready")
+    @Operation(deprecated = true, summary = "3단계: 샘플 3문항 테스트 실행 (P-AI-08)", description = "워크플로를 실행하고 바로 돌아와요(testing=true). GET /me/workspace 로 결과를 확인해요. 성공하면 status=ready")
     @PostMapping("/{ai}/test")
     fun test(@LoginUser userId: Long, @PathVariable ai: WorkspaceAi): WorkspaceAiItem =
         service.test(userId, ai)
