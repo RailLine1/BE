@@ -158,17 +158,18 @@ class CourseService(
         if (m.role == CourseRole.member) throw ApiException(ErrorCode.FORBIDDEN)
         val c = course(courseId)
 
-        val mid = req.midExamDate ?: c.midExamDate
-        val final = req.finalExamDate ?: c.finalExamDate
+        // 비울 수 있는 칸은 키가 있으면 null 이어도 반영해요 (#44)
+        val mid = if ("midExamDate" in req.sent) req.midExamDate else c.midExamDate
+        val final = if ("finalExamDate" in req.sent) req.finalExamDate else c.finalExamDate
         validateExamDates(mid, final)
 
         val sets = mutableListOf<String>()
         val params = mutableMapOf<String, Any?>("courseId" to courseId)
         req.icon?.let { sets += "icon = :icon"; params["icon"] = it }
-        req.intro?.let { sets += "intro = :intro"; params["intro"] = it.trim().ifEmpty { null } }
+        if ("intro" in req.sent) { sets += "intro = :intro"; params["intro"] = req.intro?.trim()?.ifEmpty { null } }
         req.visibility?.let { sets += "visibility = :visibility"; params["visibility"] = it.name }
-        req.midExamDate?.let { sets += "mid_exam_date = :mid"; params["mid"] = it }
-        req.finalExamDate?.let { sets += "final_exam_date = :final"; params["final"] = it }
+        if ("midExamDate" in req.sent) { sets += "mid_exam_date = :mid"; params["mid"] = mid }
+        if ("finalExamDate" in req.sent) { sets += "final_exam_date = :final"; params["final"] = final }
         req.rawAllowed?.let { sets += "raw_allowed = :raw"; params["raw"] = it }
         req.quizSource?.let { qs ->
             val ai = resolveQuizSource(userId, qs)

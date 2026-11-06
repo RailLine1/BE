@@ -144,6 +144,45 @@ class CourseFlowTest(
     }
 
     @Test
+    fun `null 을 보내면 소개 · 시험일이 지워지고 키를 빼면 그대로예요`() {
+        val admin = f.newUser()
+        val (id, _) = f.createCourse(admin, extra = ""","midExamDate":"2026-10-20","finalExamDate":"2026-12-10"""")
+        fun patch(body: String) = mvc.patch("/api/v1/courses/$id") {
+            header("Authorization", admin.bearer)
+            contentType = MediaType.APPLICATION_JSON
+            content = body
+        }
+
+        // 키를 뺀 칸과 비울 수 없는 칸의 null 은 변경 없음
+        patch("""{"icon":null,"visibility":null}""").andExpect {
+            status { isOk() }
+            jsonPath("$.icon") { value("book") }
+            jsonPath("$.visibility") { value("public") }
+            jsonPath("$.intro") { value("한 줄 소개") }
+            jsonPath("$.midExamDate") { value("2026-10-20") }
+            jsonPath("$.finalExamDate") { value("2026-12-10") }
+        }
+
+        // 지운 뒤의 값으로 순서를 검사: 중간을 지우면 기말을 옛 중간보다 앞으로 옮길 수 있어요
+        patch("""{"finalExamDate":"2026-10-01"}""").andExpect { status { isBadRequest() } }
+        patch("""{"midExamDate":null,"finalExamDate":"2026-10-01","intro":null}""").andExpect {
+            status { isOk() }
+            jsonPath("$.midExamDate") { value(null) }
+            jsonPath("$.finalExamDate") { value("2026-10-01") }
+            jsonPath("$.intro") { value(null) }
+            jsonPath("$.icon") { value("book") }
+        }
+
+        patch("""{"finalExamDate":null}""").andExpect {
+            status { isOk() }
+            jsonPath("$.finalExamDate") { value(null) }
+        }
+        val row = jdbc.sql("select intro, mid_exam_date, final_exam_date from courses where id = :id").param("id", id)
+            .query { rs, _ -> listOf(rs.getString(1), rs.getObject(2), rs.getObject(3)) }.single()
+        assertThat(row).containsOnlyNulls()
+    }
+
+    @Test
     fun `관리자가 나가면 가장 먼저 공동 관리자가 된 사람이 승격돼요`() {
         val admin = f.newUser()
         val olderCo = f.newUser()

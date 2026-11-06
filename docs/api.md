@@ -99,7 +99,7 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 | ✅ | GET | `/courses/mine?state=active\|ended` | 로그인 | 강의실 타일 / 지난 강의. 가입 대기 제외 | P-COURSE-05 |
 | ✅ | GET | `/courses/{courseId}` | 🅰🅲🅼 | 과목 상세 (`state` 포함) | |
 | ✅ | GET | `/courses/{courseId}/settings` | 🅰🅲🅼 | 환경설정. 멤버는 `code` · `role` · `notify`만 | P-ROLE-01 |
-| ✅ | PATCH | `/courses/{courseId}` | 🅰🅲 | 환경설정 변경. 보낸 항목만 바뀜. 비공개 → 공개면 대기 요청 자동 승인 | P-COURSE-04, P-BIT-03, 14 |
+| ✅ | PATCH | `/courses/{courseId}` | 🅰🅲 | 환경설정 변경. 보낸 항목만 바뀜. `intro` · 시험일은 `null`이면 지움. 비공개 → 공개면 대기 요청 자동 승인 | P-COURSE-04, P-BIT-03, 14 |
 | ✅ | POST | `/courses/{courseId}/leave` | 🅰🅲🅼 | 탈퇴 → `left` · `promoted`(+`newAdmin`) · `deleted` | P-ROLE-03, 04 |
 | ✅ | PATCH | `/courses/{courseId}/subscription` | 🅰🅲🅼 | 과목 알림 켜기·끄기 | P-NOTI-02 |
 
