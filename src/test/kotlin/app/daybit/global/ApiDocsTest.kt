@@ -26,4 +26,22 @@ class ApiDocsTest(@Autowired val mvc: MockMvc) {
             jsonPath("$.components.schemas.GithubAuthResponse.properties.firstLogin") { doesNotExist() }
         }
     }
+
+    @Test
+    fun `환경설정 변경 요청 명세는 그대로이고 내부 필드는 나오지 않아요`() {
+        val p = "$.components.schemas.UpdateCourseRequest.properties"
+        mvc.get("/v3/api-docs").andExpect {
+            status { isOk() }
+            jsonPath("$p.midExamDate.type[0]") { value("string") }
+            jsonPath("$p.midExamDate.type[1]") { value("null") }
+            jsonPath("$p.midExamDate.format") { value("date") }
+            jsonPath("$p.finalExamDate.type[1]") { value("null") }
+            jsonPath("$p.intro.maxLength") { value(30) }
+            jsonPath("$p.icon.maxLength") { value(20) }
+            jsonPath("$p.visibility.enum[0]") { value("public") }
+            jsonPath("$p.rawAllowed") { exists() }
+            jsonPath("$p.quizSource") { exists() }
+            jsonPath("$p.sent") { doesNotExist() }
+        }
+    }
 }
