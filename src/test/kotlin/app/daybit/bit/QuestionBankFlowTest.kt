@@ -121,18 +121,18 @@ class QuestionBankFlowTest(
     }
 
     @Test
-    fun `작업 공간 AI가 준비 안 됐으면 Gemini 로 전환해 만들고, Gemini 키가 없으면 만들지 않아요`() {
+    fun `출처가 출제 AI 면 자료가 ready 여도 기다리고, Gemini 키가 없으면 만들지 않아요`() {
         val admin = f.newUser()
-        val (workspaceCourse, _) = f.createCourse(admin)
-        jdbc.sql("update courses set quiz_source_type = 'workspace', quiz_source_user_id = :u, quiz_source_ai = 'codex' where id = :c")
-            .param("u", admin.id).param("c", workspaceCourse).update()
+        val (myAiCourse, _) = f.createCourse(admin)
+        jdbc.sql("update courses set quiz_source_type = 'myai', quiz_source_user_id = :u, quiz_source_ai = 'claude' where id = :c")
+            .param("u", admin.id).param("c", myAiCourse).update()
         fake.respond = { listOf(q()) }
-        f.uploadReady(admin, workspaceCourse, "Round robin gives each process a time quantum.")
-        waitQuestions(workspaceCourse, 1)
-        // P-BIT-15: 출처가 Gemini 로 바뀌고 관리자에게 알려요
-        val source = jdbc.sql("select quiz_source_type from courses where id = :c").param("c", workspaceCourse).query(String::class.java).single()
-        assertThat(source).isEqualTo("default")
-        assertThat(f.notificationTypes(admin)).contains("quiz_source_fallback")
+        fake.requests.clear()
+        val waiting = f.uploadReady(admin, myAiCourse, "Round robin gives each process a time quantum.")
+        // P-BIT-20: 예약 실행을 기다려요. force 면(24시간 대체) Gemini 로 만들어요
+        assertThat(bank.generateForFile(waiting)).isZero()
+        assertThat(fake.requests).isEmpty()
+        assertThat(bank.generateForFile(waiting, force = true)).isEqualTo(1)
 
         val (course, _) = f.createCourse(admin)
         fake.enabled = false

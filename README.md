@@ -50,7 +50,7 @@ src/main/kotlin/app/daybit/
 ├─ course/        과목 · 멤버 · 가입 요청
 ├─ explore/       탐색 · 구독
 ├─ notification/  알림 기록
-└─ material, bit, archive, connector, push, workspace
+└─ material, bit, archive, connector, myai, push
 ```
 
 `eval/`은 문제 생성 프롬프트를 바꿔 가며 품질을 비교하는 로컬 실험 도구입니다. 서버에는 포함되지 않습니다([eval/README.md](eval/README.md)).

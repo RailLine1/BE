@@ -1,7 +1,7 @@
 package app.daybit.course
 
 import app.daybit.global.common.CourseRole
-import app.daybit.global.common.WorkspaceAi
+import app.daybit.global.common.MyAi
 import app.daybit.global.security.LoginUser
 import com.fasterxml.jackson.annotation.JsonIgnore
 import io.swagger.v3.oas.annotations.Operation
@@ -31,12 +31,12 @@ enum class Visibility { public, private }
 enum class CourseState { active, ended }
 
 @Suppress("EnumEntryName")
-enum class QuizSourceType { default, workspace }
+enum class QuizSourceType { default, myai }
 
-@Schema(description = "`{type:\"default\"}` 또는 `{type:\"workspace\", ai:\"claudecode\"}` (본인 작업 공간 AI만, P-AI-09). **변경 예정** · workspace 값은 바뀔 수 있어요. 지금은 보여 주기만 하고 바꾸는 화면은 연동하지 마세요")
+@Schema(description = "`{type:\"default\"}`(Gemini Flash) 또는 `{type:\"myai\", ai:\"claude\"|\"chatgpt\"}`(내 AI 출제에 등록한 본인 AI만, P-AI-09 · 10)")
 data class QuizSource(
     val type: QuizSourceType = QuizSourceType.default,
-    val ai: WorkspaceAi? = null,
+    val ai: MyAi? = null,
 )
 
 data class CreateCourseRequest(

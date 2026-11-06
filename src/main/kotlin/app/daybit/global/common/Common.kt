@@ -8,9 +8,9 @@ data class PageResponse<T>(
     val size: Int,
 )
 
-/** 퀴즈 출처 / AI 작업 공간에서 쓰는 AI 종류 */
+/** 내 AI 출제 · 퀴즈 출처에서 쓰는 AI 종류 (P-AI-07, P-BIT-14) */
 @Suppress("EnumEntryName")
-enum class WorkspaceAi { claudecode, codex }
+enum class MyAi { claude, chatgpt }
 
 /** 과목 권한 (P-ROLE) */
 @Suppress("EnumEntryName")

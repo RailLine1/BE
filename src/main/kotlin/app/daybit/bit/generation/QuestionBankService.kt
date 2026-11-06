@@ -2,41 +2,27 @@ package app.daybit.bit.generation
 
 import app.daybit.material.MaterialReadyEvent
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.ObjectProvider
 import org.springframework.context.event.EventListener
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
-import org.springframework.transaction.event.TransactionPhase
-import org.springframework.transaction.event.TransactionalEventListener
 import java.time.Clock
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import kotlin.math.ceil
 
 /**
- * 작업 공간(#10)으로 생성을 맡기는 쪽. 요청을 보냈으면 true(결과는 나중에 비동기로 와요).
- * 보내지 못했으면 출처를 Gemini 로 되돌리고 false 를 돌려줘요 (P-BIT-15).
- */
-fun interface WorkspaceGeneration {
-    fun request(courseId: Long, fileId: Long, count: Int): Boolean
-}
-
-/** 작업 공간 생성이 실패 · 만료돼 Gemini 로 전환됐어요. 그 자료를 Gemini 로 다시 만들어요 */
-data class WorkspaceFallbackEvent(val fileId: Long)
-
-/**
  * 과목별 문제 은행을 채워요 (P-BIT-01, 02, 14).
  * - 자료가 ready 가 되면 그 자료로 문제를 만들어요.
- * - 출제 배치(#5)가 replenish() 로 모자란 범위를 다시 채워요. 생성이 실패한 자료도 이때 다시 시도돼요.
- * - 퀴즈 출처가 작업 공간인 과목은 작업 공간에 맡기고, 실패하면 Gemini 로 만들어요 (#10, P-BIT-15).
+ * - 출제 배치(#5)가 replenish() 로 모자란 범위를 다시 채워요. 생성이 실패한 자료도 이때 다시 시도돼요. 재보충은 출처와 상관없이 Gemini 가 해요.
+ * - 퀴즈 출처가 출제 AI(myai)인 과목은 새 자료를 바로 만들지 않고 예약 실행을 기다려요.
+ *   24시간 안에 안 들어오면 MyAiService 가 generateForFile(force = true)로 Gemini 를 불러요 (P-BIT-20).
  */
 @Service
 class QuestionBankService(
     private val jdbc: JdbcClient,
     private val generator: QuestionGenerator,
     private val store: QuestionStore,
-    private val workspace: ObjectProvider<WorkspaceGeneration>,
     private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -48,17 +34,9 @@ class QuestionBankService(
             .onFailure { log.warn("문제 생성 실패: fileId={}", event.fileId, it) }
     }
 
-    /** 전환(출처 · AI 상태 변경)이 커밋된 뒤에 돌아야 작업 공간으로 다시 보내지 않아요 */
-    @Async
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
-    fun onWorkspaceFallback(event: WorkspaceFallbackEvent) {
-        runCatching { generateForFile(event.fileId) }
-            .onFailure { log.warn("작업 공간 대신 Gemini 생성 실패: fileId={}", event.fileId, it) }
-    }
-
     /**
      * 범위(mid · final)의 안 낸 문제가 3일치보다 적으면 그 범위의 최신 자료로 문제를 더 만들어요 (P-BIT-02).
-     * 만든 문제 수를 돌려줘요(작업 공간에 맡긴 경우 0).
+     * 만든 문제 수를 돌려줘요.
      */
     fun replenish(courseId: Long, scope: String): Int {
         val course = course(courseId) ?: return 0
@@ -74,23 +52,27 @@ class QuestionBankService(
         return generate(fileId, course)
     }
 
-    /** 자료 하나로 문제를 만들어요. 만든 문제 수를 돌려줘요(작업 공간에 맡긴 경우 0) */
-    fun generateForFile(fileId: Long): Int {
+    /**
+     * 자료 하나로 문제를 만들어요. 만든 문제 수를 돌려줘요.
+     * 출처가 출제 AI 인 과목은 force 가 아니면 예약 실행을 기다리며 0 을 돌려줘요 (P-BIT-20).
+     */
+    fun generateForFile(fileId: Long, force: Boolean = false): Int {
         val courseId = jdbc.sql("select course_id from files where id = :id and status = 'ready'").param("id", fileId)
             .query(Long::class.java).optional().orElse(null) ?: return 0
         val course = course(courseId) ?: return 0
+        if (course.quizSourceType == "myai" && !force) return 0
         return generate(fileId, course)
+    }
+
+    /** 출제 AI 에 넘길 문제 수. Gemini 와 같은 목표 개수 규칙을 써요 (P-BIT-02) */
+    fun countFor(material: Material): Int {
+        val course = course(material.courseId) ?: return MIN_PER_FILE
+        return (target(course, material.scope) - unused(course.id, material.scope)).coerceIn(MIN_PER_FILE, MAX_PER_CALL)
     }
 
     private fun generate(fileId: Long, course: CourseRow): Int {
         val material = store.material(fileId) ?: return 0
         val count = (target(course, material.scope) - unused(course.id, material.scope)).coerceIn(MIN_PER_FILE, MAX_PER_CALL)
-
-        if (course.quizSourceType == "workspace") {
-            val sent = workspace.ifAvailable?.request(course.id, fileId, count) ?: false
-            if (sent) return 0
-            // 보내지 못했으면 이미 Gemini 로 전환됐어요. 아래에서 바로 만들어요
-        }
         if (!generator.enabled) {
             log.info("Gemini 키가 없어 문제 생성을 건너뛰어요: fileId={}", fileId)
             return 0

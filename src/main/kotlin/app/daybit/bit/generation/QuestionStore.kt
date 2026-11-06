@@ -18,7 +18,7 @@ data class Material(
 }
 
 /**
- * 문제 생성의 입력 준비와 결과 저장. Gemini(QuestionBankService)와 AI 작업 공간(#10)이 같이 써요.
+ * 문제 생성의 입력 준비와 결과 저장. Gemini(QuestionBankService)와 내 AI 출제(#48)가 같이 써요.
  * 저장 전에 형식을 검사하고, 근거 문장이 실제 페이지에 있는 문제만 verified 로 표시해요 (07_핵심기술 3).
  */
 @Component
@@ -54,7 +54,7 @@ class QuestionStore(
         )
     }
 
-    /** 형식이 맞는 문제만 개념별로 저장하고, 저장한 수를 돌려줘요. source: gemini · claudecode · codex */
+    /** 형식이 맞는 문제만 개념별로 저장하고, 저장한 수를 돌려줘요. source: gemini · claude · chatgpt */
     fun save(material: Material, generated: List<GeneratedQuestion>, source: String): Int {
         val pageText = material.pages.associate { it.page to it.text }
         val valid = generated.filter { isWellFormed(it, pageText.keys) }

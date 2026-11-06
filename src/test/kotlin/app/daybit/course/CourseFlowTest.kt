@@ -64,7 +64,7 @@ class CourseFlowTest(
         mvc.post("/api/v1/courses") {
             header("Authorization", admin.bearer)
             contentType = MediaType.APPLICATION_JSON
-            content = """{"name":"a","icon":"book","visibility":"public","quizSource":{"type":"workspace","ai":"codex"}}"""
+            content = """{"name":"a","icon":"book","visibility":"public","quizSource":{"type":"myai","ai":"claude"}}"""
         }.andExpect { status { isBadRequest() }; jsonPath("$.error.code") { value("QUIZ_SOURCE_UNAVAILABLE") } }
     }
 
