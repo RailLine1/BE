@@ -53,6 +53,8 @@ src/main/kotlin/app/daybit/
 └─ material, bit, archive, connector, push, workspace
 ```
 
+`eval/`은 문제 생성 프롬프트를 바꿔 가며 품질을 비교하는 로컬 실험 도구입니다. 서버에는 포함되지 않습니다([eval/README.md](eval/README.md)).
+
 `material` 이하 패키지는 요청·응답 형식만 확정한 상태이며, 호출하면 `501 NOT_IMPLEMENTED`를 반환합니다. FE는 이 형식으로 Orval 클라이언트와 mock을 만들어 먼저 개발할 수 있습니다. `notification`은 알림을 DB에 기록하기만 하며, 푸시 발송은 아직 연결하지 않았습니다.
 
 ## 인증

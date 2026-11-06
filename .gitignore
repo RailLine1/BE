@@ -43,3 +43,7 @@ out/
 *.log
 .env
 data/
+
+### 문제 품질 실험 (강의자료 원문 · 결과는 올리지 않음) ###
+eval/samples/
+eval/results/
