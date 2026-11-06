@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.HttpStatus
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.annotation.Transactional
@@ -37,8 +38,9 @@ data class DevBitResponse(
 /**
  * 개발 · 시연용 (#42). DAYBIT_DEV_TOOLS=true 일 때만 빈이 생겨요. 꺼져 있으면 경로가 없어 404 예요.
  * 정책서 규칙은 바꾸지 않고, 17시를 기다리거나 하루 한 번 제한에 막히지 않게만 해 줘요.
+ * daybit.dev-admins 에 적힌 아이디는 과목 권한과 상관없이 이 API 를 쓸 수 있어요 (#50). 일반 API 권한은 그대로예요.
  */
-@Tag(name = "0. 개발자 전용", description = "개발 · 시연 때만 켜는 API예요. 앱의 일반 화면에서는 쓰지 않아요.")
+@Tag(name = "0. 개발자 전용", description = "개발 · 시연 때만 켜는 API예요. 앱의 일반 화면에서는 쓰지 않아요. 서버에 지정한 개발자 계정(기본 demo01)은 과목 권한 없이 모든 과목에서 쓸 수 있어요.")
 @RestController
 @RequestMapping("/api/v1/dev")
 @ConditionalOnProperty(prefix = "daybit", name = ["dev-tools"], havingValue = "true")
@@ -47,7 +49,9 @@ class DevController(
     private val batch: BitBatchService,
     private val jdbc: JdbcClient,
     private val clock: Clock,
+    @Value("\${daybit.dev-admins:}") private val devAdmins: List<String>,
 ) {
+    private val admins = devAdmins.map { it.trim() }.filter { it.isNotEmpty() }
 
     @Operation(
         summary = "지금 Bit 바로 열기",
@@ -56,8 +60,7 @@ class DevController(
     )
     @PostMapping("/courses/{courseId}/bit/open-now")
     fun openNow(@LoginUser userId: Long, @PathVariable courseId: Long): DevBitResponse {
-        val role = courses.membership(userId, courseId).role
-        if (role != CourseRole.admin && role != CourseRole.co) throw ApiException(ErrorCode.FORBIDDEN)
+        requireManager(userId, courseId)
         val now = ZonedDateTime.now(clock.withZone(SEOUL))
         val date = BitDays.current(now)
         val created = batch.prepareOne(courseId, date, now.toOffsetDateTime())
@@ -75,7 +78,8 @@ class DevController(
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Transactional
     fun resetMe(@LoginUser userId: Long, @PathVariable bitId: Long) {
-        courses.membership(userId, courseOf(bitId))
+        val courseId = courseOf(bitId)
+        if (!isDevAdmin(userId)) courses.membership(userId, courseId)
         jdbc.sql("delete from bit_attempts where bit_id = :b and user_id = :u").param("b", bitId).param("u", userId).update()
     }
 
@@ -88,9 +92,7 @@ class DevController(
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Transactional
     fun deleteBit(@LoginUser userId: Long, @PathVariable bitId: Long) {
-        val courseId = courseOf(bitId)
-        val role = courses.membership(userId, courseId).role
-        if (role != CourseRole.admin && role != CourseRole.co) throw ApiException(ErrorCode.FORBIDDEN)
+        requireManager(userId, courseOf(bitId))
         val questionId = jdbc.sql("select question_id from bits where id = :id").param("id", bitId).query(Long::class.java).single()
         jdbc.sql("delete from bits where id = :id").param("id", bitId).update()   // 풀이 · 메모는 FK cascade
         jdbc.sql("update questions set used_at = null where id = :q").param("q", questionId).update()
@@ -101,6 +103,22 @@ class DevController(
             """.trimIndent(),
         ).param("q", questionId).update()
     }
+
+    /** 관리자 · 공동 관리자만. 개발자 계정은 과목만 있으면 돼요 */
+    private fun requireManager(userId: Long, courseId: Long) {
+        if (isDevAdmin(userId)) {
+            val exists = jdbc.sql("select count(*) from courses where id = :c").param("c", courseId).query(Int::class.java).single()
+            if (exists == 0) throw ApiException(ErrorCode.NOT_FOUND)
+            return
+        }
+        val role = courses.membership(userId, courseId).role
+        if (role != CourseRole.admin && role != CourseRole.co) throw ApiException(ErrorCode.FORBIDDEN)
+    }
+
+    private fun isDevAdmin(userId: Long): Boolean =
+        admins.isNotEmpty() &&
+            jdbc.sql("select count(*) from users where id = :u and login_id in (:ids)")
+                .param("u", userId).param("ids", admins).query(Int::class.java).single() > 0
 
     private fun courseOf(bitId: Long): Long =
         jdbc.sql("select course_id from bits where id = :id").param("id", bitId)

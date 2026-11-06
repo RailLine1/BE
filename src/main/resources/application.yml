@@ -30,6 +30,12 @@ management:
     web:
       exposure:
         include: health,info
+  info:
+    env:
+      enabled: true   # 아래 info.* 를 /actuator/info 로 보여 줘요
+
+info:
+  commit: ${RAILWAY_GIT_COMMIT_SHA:local}   # 운영에서 지금 떠 있는 커밋. Railway 가 자동으로 넣어 줘요
 
 springdoc:
   api-docs:
@@ -56,6 +62,7 @@ daybit:
       access-key: ${DAYBIT_R2_ACCESS_KEY:}
       secret-key: ${DAYBIT_R2_SECRET_KEY:}
   dev-tools: ${DAYBIT_DEV_TOOLS:false}   # true 면 개발자 전용 API(/api/v1/dev/**)를 켜요. 시연이 끝나면 꺼요
+  dev-admins: ${DAYBIT_DEV_ADMINS:demo01}   # 과목 권한 없이 개발자 전용 API를 쓰는 아이디(login_id). 쉼표로 여러 개
   gemini:
     api-key: ${DAYBIT_GEMINI_API_KEY:}       # 비어 있으면 문제를 만들지 않아요
     models: ${DAYBIT_GEMINI_MODEL:gemini-3.8-flash,gemini-flash-latest,gemini-3.5-flash,gemini-flash-lite-latest}   # 쉼표로 여러 개. 앞에서부터 시도
