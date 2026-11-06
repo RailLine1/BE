@@ -1,7 +1,7 @@
 package app.daybit.course
 
 import app.daybit.global.common.CourseRole
-import app.daybit.global.common.WorkspaceAi
+import app.daybit.global.common.MyAi
 import app.daybit.global.error.ApiException
 import app.daybit.global.error.ErrorCode
 import app.daybit.global.storage.FileStorage
@@ -49,7 +49,7 @@ class CourseService(
         return CreateCourseResponse(id, code)
     }
 
-    private fun insertCourseWithUniqueCode(userId: Long, req: CreateCourseRequest, sourceAi: WorkspaceAi?): Pair<Long, String> {
+    private fun insertCourseWithUniqueCode(userId: Long, req: CreateCourseRequest, sourceAi: MyAi?): Pair<Long, String> {
         // Postgres 는 트랜잭션 안에서 unique 위반이 나면 트랜잭션 전체가 깨지므로, 미리 비어 있는 코드를 골라요.
         // (36^6 ≈ 21억이라 겹칠 일은 거의 없고, 동시 생성으로 겹치면 unique 제약이 막아 줘요)
         val code = generateSequence { newCode() }.take(CODE_ATTEMPTS)
@@ -75,7 +75,7 @@ class CourseService(
             .param("visibility", req.visibility.name)
             .param("mid", req.midExamDate)
             .param("final", req.finalExamDate)
-            .param("sourceType", if (sourceAi == null) "default" else "workspace")
+            .param("sourceType", if (sourceAi == null) "default" else "myai")
             .param("sourceUser", if (sourceAi == null) null else userId)
             .param("sourceAi", sourceAi?.name)
             .param("userId", userId)
@@ -176,7 +176,7 @@ class CourseService(
             sets += "quiz_source_type = :sourceType"
             sets += "quiz_source_user_id = :sourceUser"
             sets += "quiz_source_ai = :sourceAi"
-            params["sourceType"] = if (ai == null) "default" else "workspace"
+            params["sourceType"] = if (ai == null) "default" else "myai"
             params["sourceUser"] = if (ai == null) null else userId
             params["sourceAi"] = ai?.name
         }
@@ -258,12 +258,12 @@ class CourseService(
     }
 
     /**
-     * userId 가 이 과목의 퀴즈 출처(작업 공간 AI)라면 Gemini 로 되돌리고 관리자·공동 관리자에게 알려요 (P-BIT-15).
+     * userId 가 이 과목의 퀴즈 출처(출제 AI)라면 Gemini 로 되돌리고 관리자·공동 관리자에게 알려요 (P-BIT-15).
      * 탈퇴·추방·멤버로 강등처럼 그 사람이 더 이상 출처를 맡을 수 없을 때 불러요.
      */
     fun releaseQuizSource(courseId: Long, userId: Long) {
         val c = course(courseId)
-        if (c.quizSourceType != QuizSourceType.workspace || c.quizSourceUserId != userId) return
+        if (c.quizSourceType != QuizSourceType.myai || c.quizSourceUserId != userId) return
         jdbc.sql(
             """
             update courses set quiz_source_type = 'default', quiz_source_user_id = null, quiz_source_ai = null
@@ -308,7 +308,7 @@ class CourseService(
         val rawAllowed: Boolean,
         val quizSourceType: QuizSourceType,
         val quizSourceUserId: Long?,
-        val quizSourceAi: WorkspaceAi?,
+        val quizSourceAi: MyAi?,
     )
 
     private fun course(courseId: Long): CourseRow =
@@ -327,17 +327,18 @@ class CourseService(
         rawAllowed = getBoolean("raw_allowed"),
         quizSourceType = QuizSourceType.valueOf(getString("quiz_source_type")),
         quizSourceUserId = getObject("quiz_source_user_id", java.lang.Long::class.java)?.toLong(),
-        quizSourceAi = getString("quiz_source_ai")?.let { WorkspaceAi.valueOf(it) },
+        quizSourceAi = getString("quiz_source_ai")?.let { MyAi.valueOf(it) },
     )
 
     /**
-     * P-AI-09: 출처는 Gemini(default) 또는 **본인이** 작업 공간에 연결해 둔 AI만.
-     * workspace 면 고른 AI 를, default 면 null 을 돌려줘요.
+     * P-AI-09: 출처는 Gemini(default) 또는 **본인이** 내 AI 출제에 등록한 AI만.
+     * myai 면 고른 AI 를, default 면 null 을 돌려줘요.
      */
-    private fun resolveQuizSource(userId: Long, source: QuizSource): WorkspaceAi? {
+    private fun resolveQuizSource(userId: Long, source: QuizSource): MyAi? {
         if (source.type == QuizSourceType.default) return null
-        val ai = source.ai ?: throw ApiException(ErrorCode.VALIDATION_FAILED, "작업 공간 AI를 골라 주세요.")
-        val ready = jdbc.sql("select count(*) from workspace_ais where user_id = :userId and ai = :ai and status = 'ready'")
+        val ai = source.ai ?: throw ApiException(ErrorCode.VALIDATION_FAILED, "출제 AI를 골라 주세요.")
+        // P-AI-08: 예약 실행(get_jobs)이 한 번이라도 들어온 AI 만 등록된 것으로 봐요
+        val ready = jdbc.sql("select count(*) from myai_runs where user_id = :userId and ai = :ai")
             .param("userId", userId).param("ai", ai.name).query(Int::class.java).single() > 0
         if (!ready) throw ApiException(ErrorCode.QUIZ_SOURCE_UNAVAILABLE)
         return ai

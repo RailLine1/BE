@@ -7,7 +7,6 @@ import app.daybit.global.security.TokenHasher
 import app.daybit.user.User
 import app.daybit.user.UserRepository
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.ObjectProvider
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -29,11 +28,6 @@ import kotlin.random.Random
  * 3) exchange: 앱이 code 를 토큰으로 바꿔요. code 는 1분 안에 한 번만 쓸 수 있어요.
  * 실패하면 앱 주소로 `?error=코드` 를 붙여 돌려보내요.
  */
-/** 작업 공간(#10) 1단계: GitHub 콜백에서 저장소를 만들어요. 실패하면 앱으로 돌려보낼 error 값 */
-fun interface WorkspaceLinker {
-    fun link(userId: Long, code: String, redirectUri: String): String?
-}
-
 @Service
 class GithubAuthService(
     private val props: DaybitProperties,
@@ -42,25 +36,20 @@ class GithubAuthService(
     private val tokens: TokenService,
     private val jdbc: JdbcClient,
     private val json: JsonMapper,
-    private val workspace: ObjectProvider<WorkspaceLinker>,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val key = SecretKeySpec(props.jwt.secret.toByteArray(), "HmacSHA256")
 
     private val callbackUrl get() = props.publicBaseUrl.trimEnd('/') + "/api/v1/auth/github/callback"
 
-    /**
-     * GitHub 인가 페이지 주소. linkUserId 가 있으면 로그인 대신 그 계정에 연결해요.
-     * workspace = true 면 작업 공간 1단계(#10): 저장소 · 워크플로 권한을 요청하고 콜백에서 저장소를 만들어요.
-     */
-    fun authorizeUrl(redirect: String, linkUserId: Long? = null, workspace: Boolean = false): String {
+    /** GitHub 인가 페이지 주소. linkUserId 가 있으면 로그인 대신 그 계정에 연결해요 */
+    fun authorizeUrl(redirect: String, linkUserId: Long? = null): String {
         if (!isAllowedRedirect(redirect)) throw ApiException(ErrorCode.VALIDATION_FAILED, "redirect: 허용되지 않은 주소예요.")
-        val purpose = if (workspace) PURPOSE_WORKSPACE else PURPOSE_LOGIN
-        val state = sign(State(redirect, linkUserId, Instant.now().plus(STATE_TTL).epochSecond, TokenHasher.newToken(8), purpose))
+        val state = sign(State(redirect, linkUserId, Instant.now().plus(STATE_TTL).epochSecond, TokenHasher.newToken(8)))
         return UriComponentsBuilder.fromUriString("https://github.com/login/oauth/authorize")
             .queryParam("client_id", props.github.clientId)
             .queryParam("redirect_uri", callbackUrl)
-            .queryParam("scope", if (workspace) "read:user repo workflow" else "read:user")
+            .queryParam("scope", "read:user")
             .queryParam("state", state)
             .encode().build().toUriString()
     }
@@ -70,10 +59,6 @@ class GithubAuthService(
     fun callback(code: String?, rawState: String, githubError: String?): String {
         val state = verify(rawState) ?: throw ApiException(ErrorCode.VALIDATION_FAILED, "state: 로그인을 처음부터 다시 시도해 주세요.")
         if (githubError != null || code.isNullOrBlank()) return redirectWith(state.redirect, "error", "GITHUB_CANCELLED")
-        if (state.purpose == PURPOSE_WORKSPACE && state.linkUserId != null) {
-            val error = workspace.getObject().link(state.linkUserId, code, callbackUrl)
-            return if (error == null) redirectWith(state.redirect, "workspace", "linked") else redirectWith(state.redirect, "error", error)
-        }
 
         val ghUser = try {
             github.fetchUser(code, callbackUrl)
@@ -150,7 +135,7 @@ class GithubAuthService(
         generateSequence { "user" + Random.nextInt(10_000_000, 99_999_999) }
             .first { !users.existsByNickname(it) }
 
-    private data class State(val redirect: String, val linkUserId: Long?, val exp: Long, val nonce: String, val purpose: String = PURPOSE_LOGIN)
+    private data class State(val redirect: String, val linkUserId: Long?, val exp: Long, val nonce: String)
 
     private fun sign(state: State): String {
         val payload = Base64.getUrlEncoder().withoutPadding().encodeToString(json.writeValueAsBytes(state))
@@ -172,7 +157,5 @@ class GithubAuthService(
     companion object {
         private val STATE_TTL: Duration = Duration.ofMinutes(10)
         private val CODE_TTL: Duration = Duration.ofMinutes(1)
-        private const val PURPOSE_LOGIN = "login"
-        private const val PURPOSE_WORKSPACE = "workspace"
     }
 }

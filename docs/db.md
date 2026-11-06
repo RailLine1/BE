@@ -29,9 +29,7 @@ erDiagram
   users ||--o{ memos : writes
   users ||--o| connector_tokens : owns
   users ||--o{ connector_calls : logs
-  users ||--o| workspaces : owns
-  workspaces ||--o{ workspace_ais : registers
-  users ||--o{ workspace_jobs : requests
+  users ||--o{ myai_runs : runs
   users ||--o{ push_tokens : has
   users ||--o{ notifications : receives
 ```
@@ -56,8 +54,7 @@ erDiagram
 | 기록 | `memos` | 아카이브 문제에 남기는 메모. 삭제는 표시 방식(`deleted_at`, `deleted_by`) | 사용 중 |
 | AI 연결 | `connector_tokens` | 사용자당 커넥터 토큰 해시 1개 (원문 저장 안 함) | 사용 중 |
 | | `connector_calls` | 도구 호출 기록, 클라이언트 종류 | 사용 중 |
-| | `workspaces`, `workspace_ais` | 작업 공간 저장소, 관리자 GitHub 토큰(암호화, V3), AI별 상태 · 마지막 오류. 구독 토큰은 저장하지 않음 (P-AI-09) **[검증 필요]** | 사용 중 |
-| | `workspace_jobs` | 작업 공간에 맡긴 생성 작업(`test` · `generate`), 상태(`pending` → `running` → `done` · `failed`), 실패 이유 (V3) | 사용 중 |
+| | `myai_runs` | 내 AI 출제 예약 실행 기록. (사용자, AI `claude` · `chatgpt`)별 첫 · 마지막 실행 시각. 행이 있으면 등록됨(P-AI-08), 48시간 실행이 없으면 출처 전환(P-BIT-15) (V4). 작업 공간 테이블(`workspaces` · `workspace_ais` · `workspace_jobs`)은 V4에서 지움 | 사용 중 |
 | 알림 | `push_tokens` | FCM 기기 토큰, 플랫폼(`android` · `ios` · `web`) (D4) | 사용 중 |
 | | `notifications` | 알림 기록. 종류(`bit_open` · `join_approved` · `promoted_admin` · `quiz_source_fallback`), `payload jsonb` | 사용 중 (기록 후 FCM 발송) |
 

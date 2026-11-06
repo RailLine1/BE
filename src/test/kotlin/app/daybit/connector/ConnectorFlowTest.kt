@@ -102,7 +102,7 @@ class ConnectorFlowTest(
 
         val tools = rpc(token, "tools/list", session = session).andExpect { status { isOk() } }
             .andReturn().response.contentAsString.let { json.readTree(it).path("result").path("tools").toList().map { t -> t.path("name").asString() } }
-        assertThat(tools).containsExactly("list_courses", "list_materials", "search", "read_pages", "get_page_image")
+        assertThat(tools).containsExactly("list_courses", "list_materials", "search", "read_pages", "get_page_image", "get_jobs", "submit_questions")
         rpc(token, "resources/list").andExpect { jsonPath("$.error.code") { value(-32601) } }
 
         val claude = connector(user).path("clients").toList().first { it.path("client").asString() == "claude" }

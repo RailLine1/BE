@@ -20,7 +20,7 @@ sealed interface ToolResult {
 }
 
 /**
- * MCP 도구 5개 (docs/api.md "MCP 서버", P-AI-03).
+ * 읽기 도구 5개 (docs/api.md "MCP 서버", P-AI-03). 내 AI 출제 도구 2개는 MyAiService 에 있어요.
  * 모두 읽기 전용이고, 토큰 주인이 구독 중(승인된 멤버)인 과목의 ready 자료만 다뤄요.
  * 원본 열람 off(P-MAT-05)여도 막지 않아요 (P-MAT-06).
  */

@@ -117,7 +117,7 @@ class MemberFlowTest(
         val (id, _) = f.createCourse(admin)
         f.join(id, co, role = "co", coSinceDaysAgo = 1)
         jdbc.sql(
-            "update courses set quiz_source_type = 'workspace', quiz_source_user_id = :u, quiz_source_ai = 'codex' where id = :c",
+            "update courses set quiz_source_type = 'myai', quiz_source_user_id = :u, quiz_source_ai = 'claude' where id = :c",
         ).param("u", co.id).param("c", id).update()
 
         mvc.delete("/api/v1/courses/$id/members/${co.id}") { header("Authorization", admin.bearer) }

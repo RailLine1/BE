@@ -43,7 +43,7 @@ Daybit 백엔드 API의 공통 규칙, 오류 코드, 엔드포인트 목록입�
 | HTTP | code | 상황 |
 |---|---|---|
 | 400 | `VALIDATION_FAILED` | 입력 형식 오류. 요청 본문 검증 실패면 첫 번째 오류가 `필드: 내용`으로, 쿼리 · 경로 값 오류면 기본 문구가 들어갑니다 |
-| 400 | `QUIZ_SOURCE_UNAVAILABLE` | 본인이 작업 공간에 연결해 둔 AI가 아닌 퀴즈 출처를 고름 (P-AI-09) |
+| 400 | `QUIZ_SOURCE_UNAVAILABLE` | 내 AI 출제에 등록하지 않은 AI를 퀴즈 출처로 고름 (P-AI-09) |
 | 401 | `UNAUTHORIZED` | 토큰이 없거나 만료됨 → refresh |
 | 401 | `INVALID_CREDENTIALS` | 아이디·비밀번호 불일치 |
 | 401 | `INVALID_REFRESH_TOKEN` | 리프레시 토큰이 없거나 만료·사용됨 → 다시 로그인 |
@@ -56,7 +56,6 @@ Daybit 백엔드 API의 공통 규칙, 오류 코드, 엔드포인트 목록입�
 | 409 | `BIT_CLOSED` | 마감된 Bit 시작 · 제출 (P-BIT-05) |
 | 409 | `COURSE_ENDED` | 종료된 과목 구독 (P-EXP-04) |
 | 409 | `NO_QUESTION_READY` | 개발자 전용 Bit 열기에서 낼 문제가 없음(처리 완료 자료 · 검증된 문제 없음) |
-| 409 | `WORKSPACE_NOT_LINKED` | AI 작업 공간 1단계(GitHub 연결) 전에 2 · 3단계 요청 |
 | 413 | `FILE_TOO_LARGE` | 업로드 파일이 50MB 초과 (P-MAT-02) |
 | 500 | `INTERNAL_ERROR` | 서버 오류 |
 | 501 | `NOT_IMPLEMENTED` | 아직 구현하지 않은 API |
@@ -103,7 +102,7 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 | ✅ | POST | `/courses/{courseId}/leave` | 🅰🅲🅼 | 탈퇴 → `left` · `promoted`(+`newAdmin`) · `deleted` | P-ROLE-03, 04 |
 | ✅ | PATCH | `/courses/{courseId}/subscription` | 🅰🅲🅼 | 과목 알림 켜기·끄기 | P-NOTI-02 |
 
-`quizSource`는 `{ "type": "default" }` 또는 `{ "type": "workspace", "ai": "claudecode" | "codex" }`입니다. `PATCH`에서 값을 보내지 않은 항목은 바뀌지 않으며, 한 번 넣은 시험일을 비우는 방법은 아직 없습니다.
+`quizSource`는 `{ "type": "default" }`(Gemini Flash) 또는 `{ "type": "myai", "ai": "claude" | "chatgpt" }`(내 AI 출제)입니다. `PATCH`에서 키를 빼면 그 항목은 바뀌지 않습니다. `intro` · `midExamDate` · `finalExamDate`는 `null`을 보내면 지워집니다.
 
 ### 탐색 · 구독
 
@@ -187,27 +186,17 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 | ✅ | GET | `/me/connector` | 로그인 | 커넥터 주소와 클라이언트별 최근 호출. 처음 부르면 발급하고 전체 주소(`fullUrlShown: true`), 이후는 가린 주소 | P-AI-02, 04 |
 | ✅ | POST | `/me/connector/reissue` | 로그인 | 새 주소 발급, 이전 주소 즉시 무효 | P-AI-02 |
 
-### AI 작업 공간 **[변경 예정]**
+### 내 AI 출제
 
-> AI 출제 방식을 바꾸는 중이라 이 절의 API, `POST /me/github/link`, 과목 설정의 `quizSource: workspace`는 바뀌거나 없어질 수 있습니다. 아직 연동하지 않습니다. Swagger에도 취소선(deprecated)으로 표시됩니다.
+관리자 AI 앱(Claude · ChatGPT)의 예약 작업이 커넥터 도구(`get_jobs` · `submit_questions`, 아래 MCP 서버)로 새 자료를 받아 문제를 만들어 보냅니다(P-AI-07~11). 서버는 구독 계정에 닿지 않고 받은 문제만 저장합니다.
 
 | 상태 | 메서드 | 경로 | 권한 | 요약 | 정책 |
 |---|---|---|---|---|---|
-| ✅ | GET | `/me/workspace` | 로그인 | 저장소 연결 상태, AI별 상태(`none` · `ready` · `expired`), `testing`, `lastError` | P-AI-07 |
-| ✅ | POST | `/me/workspace/github` | 로그인 | 1단계: `{redirect}` → GitHub 권한 요청 `{url}`. 허용하면 내 계정에 비공개 저장소 `daybit-workspace` 생성, `redirect?workspace=linked` | P-AI-08 |
-| ✅ | POST | `/me/workspace/{ai}/setup` | 로그인 | 2단계: Codespace 주소 `{url, command}`. 1단계 전이면 409 | P-AI-08 |
-| ✅ | POST | `/me/workspace/{ai}/test` | 로그인 | 3단계: 샘플 3문항 워크플로 실행. 결과는 `GET /me/workspace`로 확인 → 성공 시 `ready` | P-AI-08 |
+| ✅ | GET | `/me/myai` | 로그인 | AI별(`claude` · `chatgpt`) 등록 여부, 마지막 예약 실행 시각, 붙여 넣을 예약 문장(`schedulePrompt`) | P-AI-08, 10 |
 
-- 1단계 실패 시 `redirect`에 붙는 `error`: `GITHUB_CANCELLED`, `GITHUB_FAILED`, `GITHUB_ALREADY_LINKED`, `GITHUB_ACCOUNT_MISMATCH`(이미 연결한 GitHub와 다른 계정으로 허용), `WORKSPACE_REPO_FAILED`(템플릿 복사 실패)
-- 3단계는 바로 돌아오고(`testing: true`) 워크플로가 끝나면 `ready`가 되거나 `lastError`가 채워집니다. 앱은 몇 초마다 `GET /me/workspace`를 다시 부릅니다.
-- `ready`가 된 AI만 과목 환경설정의 퀴즈 출처로 고를 수 있습니다(P-AI-09). 그 과목은 자료가 `ready`가 될 때마다 작업 공간 워크플로가 문제를 만듭니다. 실패 · 시간 초과(30분)면 즉시 Gemini로 전환하고 관리자 · 공동 관리자에게 알립니다(P-BIT-15). 그때 AI 상태는 `expired`가 됩니다.
-
-워크플로가 부르는 내부 API(앱은 쓰지 않음, Swagger에 없음). 인증은 GitHub Actions OIDC 토큰(`audience: daybit`)이고, 토큰의 저장소가 작업 주인의 작업 공간이어야 합니다(결정 D11).
-
-| 메서드 | 경로 | 내용 |
-|---|---|---|
-| GET | `/internal/workspace/jobs/{jobId}` | 작업 내용: `kind`(`test` · `generate`), `ai`, `count`, `system`(출제 규칙), `schema`(응답 스키마), `prompt`(자료 본문) |
-| POST | `/internal/workspace/jobs/{jobId}/result` | `{"questions":[...]}`(스키마와 같은 형식) 또는 `{"error":"..."}` → 204 |
+- 등록 2단계: ① 그 AI 앱에 커넥터 등록 ② `schedulePrompt`를 AI 앱에 붙여 넣어 예약 작업 만들기. 예약 실행(`get_jobs`)이 처음 들어오면 `registered: true`입니다.
+- 등록된 AI만 퀴즈 출처(`{ "type": "myai", "ai": "claude" }`)로 고를 수 있습니다. 아니면 400 `QUIZ_SOURCE_UNAVAILABLE`.
+- 출처가 출제 AI인 과목은 자료가 `ready`가 돼도 Gemini가 바로 만들지 않고 예약 실행을 기다립니다. 올린 지 24시간이 지나도 문제가 없으면 Gemini가 만듭니다(P-BIT-20). 마지막 예약 실행이 48시간 전이면 출처를 Gemini로 되돌리고 관리자 · 공동 관리자에게 알립니다(P-BIT-15). 10분마다 확인합니다.
 
 ### 개발자 전용
 
@@ -225,7 +214,7 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 
 - 주소: `https://<BE 도메인>/mcp/u/{token}`. 인증은 주소 안의 개인 토큰입니다. 틀리거나 재발급으로 무효가 된 토큰은 404입니다(401이면 AI 앱이 OAuth 로그인을 시도하기 때문). OAuth 방식 추가는 [미정]입니다.
 - `POST`로 JSON-RPC 요청 하나를 보내면 JSON 응답 하나를 받습니다. 서버 → 클라이언트 스트림(`GET`, SSE)은 쓰지 않아 405입니다. 메서드는 `initialize`, `ping`, `tools/list`, `tools/call`입니다.
-- 범위: 토큰 주인이 구독 중인 과목의 `ready` 자료만 읽기 전용으로 제공합니다 (P-AI-03). 원본 열람을 꺼도 막지 않습니다 (P-MAT-06).
+- 범위: 토큰 주인이 구독 중인 과목의 `ready` 자료만 읽기 전용으로 제공합니다 (P-AI-03). 원본 열람을 꺼도 막지 않습니다 (P-MAT-06). 예외는 내 AI 출제의 `submit_questions` 하나입니다.
 - 호출 기록: `initialize`의 `clientInfo.name`(없으면 User-Agent)으로 Claude, ChatGPT, Claude Code, Codex를 구분해 `GET /me/connector`의 등록 상태에 씁니다 (P-AI-04).
 - 범위 밖 자료, 6쪽 이상 읽기 같은 실패는 HTTP 오류가 아니라 도구 결과의 `isError: true`와 안내 문구로 돌려줍니다.
 
@@ -236,6 +225,10 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 | `search` | `{courseId, query, limit?=5}` | `[{fileId, title, page, snippet}]` | 키워드가 들어 있는 페이지. 여러 단어는 공백으로 나누고 많이 맞은 페이지부터. 최대 20 |
 | `read_pages` | `{fileId, pages:[12,13]}` | `[{page, text}]` (한 번에 최대 5쪽) | 필요한 페이지 텍스트만 반환 |
 | `get_page_image` | `{fileId, page}` | PNG 이미지 1장 | 도표 · 수식이 필요할 때만. 원본 PDF에서 그때그때 그림 |
+| `get_jobs` | `{ai}` | `{job: {fileId, course, title, count, prompt} \| null, remaining, rules, schema}` | 내 AI 출제 예약 작업용. 실행을 기록하고, 출처가 (나, 이 AI)이고 내가 관리자 · 공동 관리자인 과목의 아직 문제가 없는 자료를 하나 줌. `prompt`는 Gemini에 보내는 것과 같은 자료 본문 |
+| `submit_questions` | `{ai, fileId, questions:[...]}` | `{saved, verified, rejected}` | 같은 조건을 다시 확인하고 Gemini 문제와 같은 형식 · 근거 검사로 저장. 이미 문제가 있는 자료는 거절(P-BIT-20). 한 번에 최대 50개 |
+
+`ai`는 예약 문장에 적힌 값(`claude` · `chatgpt`)입니다. 예약 실행에서는 MCP 클라이언트 이름을 믿을 수 없어서(Claude 예약 작업이 `claudecode`로 기록됨) 쓰지 않습니다.
 
 ## 배치 작업
 
@@ -244,8 +237,8 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 | 상태 | 시각 | 작업 | 정책 |
 |---|---|---|---|
 | ✅ | 자료 업로드 시 | 텍스트 추출 → `ready` · `failed` | P-MAT-03 |
-| ✅ | 자료 처리 완료 시 | 개념 · 문제 생성(Gemini Flash). 근거 문장이 페이지에 있는 문제만 `verified`. 작업 공간 출처는 건너뜀 | P-BIT-01, 02, 14 |
+| ✅ | 자료 처리 완료 시 | 개념 · 문제 생성(Gemini Flash). 근거 문장이 페이지에 있는 문제만 `verified`. 출처가 출제 AI면 기다림 | P-BIT-01, 02, 14, 20 |
 | ✅ | 매일 16:30 | 과목별 출제 범위 계산, 문제 1개 선택. 자료가 없으면 건너뜀 | P-BIT-03, 04, 06 |
 | ✅ | 매일 17:00 | 오늘 Bit 열기와 알림. 어제 Bit 마감 → 집계 → 아카이브 게시 | P-BIT-05, P-ARC-01 |
 | ✅ | 매일 00:10 | 과목 상태 점검: 활동 없음 OFF, 기말 OFF, 중간 시험일 경과 시 범위 전환 | P-BIT-16~18 |
-| ✅ | 작업 공간 실패 시 | 출처를 Gemini Flash로 전환, 관리자 · 공동 관리자 알림 | P-BIT-15 |
+| ✅ | 10분마다 | 내 AI 출제: 24시간 지난 자료는 Gemini로 생성, 예약 실행이 48시간 없으면 출처를 Gemini Flash로 전환하고 관리자 · 공동 관리자 알림 | P-BIT-15, 20 |

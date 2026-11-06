@@ -6,7 +6,7 @@ import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
 
 /**
- * 문제 생성 프롬프트 (resources/prompts). Gemini 와 AI 작업 공간(#10)이 같은 규칙 · 같은 응답 형식을 써요.
+ * 문제 생성 프롬프트 (resources/prompts). Gemini 와 내 AI 출제(#48)가 같은 규칙 · 같은 응답 형식을 써요.
  * 품질 실험 결과는 프롬프트 파일만 고쳐서 반영해요.
  */
 @Component
