@@ -46,6 +46,7 @@ Postgres 서비스가 제공하는 **`DATABASE_URL`은 넣지 않습니다.** `p
 |---|---|---|
 | `DAYBIT_SWAGGER_ENABLED` | `true` | 해커톤 기간에는 켜 둡니다. FE가 배포 서버의 `/v3/api-docs`로 API 클라이언트를 생성합니다 |
 | `DAYBIT_DEV_TOOLS` | `false` | `true`면 개발자 전용 API(`/api/v1/dev/**`: Bit 바로 열기, 내 풀이 지우기, Bit 지우기)를 켭니다. 점검 · 시연 기간에만 켜고 끝나면 지웁니다 (`docs/api.md` 개발자 전용) |
+| `DAYBIT_DEV_ADMINS` | `demo01` | 과목 권한 없이 개발자 전용 API를 쓰는 아이디(`login_id`), 쉼표로 여러 개. 기본값이 시연 계정이라 보통 넣지 않습니다 |
 
 ### 문제 생성 (Gemini)
 
@@ -91,6 +92,7 @@ Postgres 서비스가 제공하는 **`DATABASE_URL`은 넣지 않습니다.** `p
 | 주소 | 기대 결과 |
 |---|---|
 | `https://<BE 도메인>/actuator/health` | `{"status":"UP", ...}`. Railway Healthcheck Path로 사용할 수 있습니다 |
+| `https://<BE 도메인>/actuator/info` | `{"commit":"<커밋>"}`. 지금 떠 있는 커밋입니다(Railway가 넣는 `RAILWAY_GIT_COMMIT_SHA`). main에 머지한 뒤 이 값이 머지 커밋으로 바뀌면 자동 배포가 된 것입니다 |
 | `https://<BE 도메인>/swagger-ui` | API 문서 화면 |
 | `https://<BE 도메인>/v3/api-docs` | OpenAPI JSON |
 

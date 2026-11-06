@@ -202,6 +202,8 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 
 개발 · 시연 때만 켭니다. 환경 변수 `DAYBIT_DEV_TOOLS=true`일 때만 경로가 생기고 Swagger에 `0. 개발자 전용`으로 보입니다. 꺼져 있으면 404입니다. 정책서 규칙은 바꾸지 않고, 17시를 기다리거나 하루 한 번 제한에 막히지 않게만 합니다(#42). 이 API로 만든 Bit도 평소 Bit와 똑같이 마감 · 아카이브되므로, 시연 전에 `DELETE /dev/bits/{bitId}`로 정리합니다.
 
+개발자 계정: 설정 `daybit.dev-admins`(환경 변수 `DAYBIT_DEV_ADMINS`, 기본값 `demo01`)에 적힌 아이디는 아래 3개 API에서 과목 권한 검사를 건너뜁니다. 멤버가 아닌 과목도 되고, 없는 과목 · Bit는 404입니다. 일반 API 권한은 그대로입니다(#50).
+
 | 상태 | 메서드 | 경로 | 권한 | 요약 | 정책 |
 |---|---|---|---|---|---|
 | ✅ | POST | `/dev/courses/{courseId}/bit/open-now` | 🅰 🅲 | 지금 Bit 날짜(17시 전이면 어제)의 Bit가 없으면 평소 규칙으로 바로 만듭니다. 이미 있으면 그대로 반환(`created: false`). 낼 문제가 없으면 409 `NO_QUESTION_READY` | P-BIT-03, 04, 06 |

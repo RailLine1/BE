@@ -39,6 +39,7 @@ class SecurityConfig(
                 authorize(HttpMethod.OPTIONS, "/**", permitAll)
                 authorize("/api/v1/auth/**", permitAll)          // 🔓
                 authorize("/actuator/health/**", permitAll)
+                authorize("/actuator/info", permitAll)            // 배포된 커밋 확인
                 authorize("/v3/api-docs/**", permitAll)
                 authorize("/swagger-ui/**", permitAll)
                 authorize("/swagger-ui.html", permitAll)

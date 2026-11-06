@@ -24,7 +24,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 
 @Import(TestcontainersConfiguration::class, MutableClockConfig::class)
-@SpringBootTest(properties = ["daybit.dev-tools=true"])
+@SpringBootTest(properties = ["daybit.dev-tools=true", "daybit.dev-admins=devadmin50, other"])
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class DevToolsTest(
@@ -130,6 +130,40 @@ class DevToolsTest(
             .andExpect { status { isOk() }; jsonPath("$.created") { value(true) } }
     }
 
+    @Test
+    fun `개발자 계정은 멤버가 아닌 과목도 열고 지우고 다시 풀 수 있어요`() {
+        val admin = f.newUser()
+        val courseId = courseWithQuestions(admin)
+        val dev = devAdmin()
+        clock.set(LocalDateTime.of(day, LocalTime.of(15, 0)))
+
+        val bitId = json.readTree(
+            mvc.post("/api/v1/dev/courses/$courseId/bit/open-now") { header("Authorization", dev.bearer) }
+                .andExpect { status { isOk() }; jsonPath("$.created") { value(true) } }.andReturn().response.contentAsString,
+        ).path("bitId").asLong()
+        mvc.post("/api/v1/dev/bits/$bitId/reset-me") { header("Authorization", dev.bearer) }.andExpect { status { isNoContent() } }
+        mvc.delete("/api/v1/dev/bits/$bitId") { header("Authorization", dev.bearer) }.andExpect { status { isNoContent() } }
+        assertThat(count("select count(*) from bits where id = :id", bitId)).isZero()
+
+        // 없는 과목은 404, 일반 API 권한은 그대로예요
+        mvc.post("/api/v1/dev/courses/999999999/bit/open-now") { header("Authorization", dev.bearer) }.andExpect { status { isNotFound() } }
+        mvc.get("/api/v1/courses/$courseId") { header("Authorization", dev.bearer) }.andExpect { status { isNotFound() } }
+    }
+
+    /** daybit.dev-admins 에 적은 아이디로 가입해요. 테스트끼리 DB 를 같이 써서 한 번만 가입해요 */
+    private fun devAdmin(): TestUser {
+        val login = { mvc.post("/api/v1/auth/login") { contentType = MediaType.APPLICATION_JSON; content = DEV_LOGIN } }
+        val res = login().andReturn().response
+        val body = if (res.status == 200) res.contentAsString else
+            mvc.post("/api/v1/auth/signup") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"loginId":"devadmin50","password":"password1","nickname":"개발자50"}"""
+            }.andExpect { status { isCreated() } }.andReturn().response.contentAsString
+        val tree = json.readTree(body)
+        val id = tree.path("user").path("id").asLong()
+        return TestUser(id, tree.path("tokens").path("accessToken").asString(), "개발자50")
+    }
+
     private fun count(sql: String, id: Long) = jdbc.sql(sql).param("id", id).query(Int::class.java).single()
 
     private fun courseWithQuestions(admin: TestUser): Long {
@@ -151,5 +185,9 @@ class DevToolsTest(
             contentType = MediaType.APPLICATION_JSON
             content = """{"choice":1}"""
         }.andExpect { status { isOk() }; jsonPath("$.correct") { value(true) } }
+    }
+
+    companion object {
+        private const val DEV_LOGIN = """{"loginId":"devadmin50","password":"password1"}"""
     }
 }
