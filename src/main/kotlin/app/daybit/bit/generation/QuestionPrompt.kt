@@ -18,8 +18,14 @@ class QuestionPrompt(private val json: JsonMapper) {
     /** 응답 JSON 스키마 (표준 JSON Schema, 소문자 type) */
     val schema: JsonNode = json.readTree(read("prompts/question-schema.json"))
 
+    /** 정답 숨긴 검수 규칙과 응답 스키마 (#52) */
+    val checkSystem: String = read("prompts/question-check.md").trim()
+    private val checkSchema: JsonNode = json.readTree(read("prompts/question-check-schema.json"))
+
     /** Gemini responseSchema 는 type 을 대문자(OBJECT, STRING …)로 받아요 */
     fun geminiSchema(): Any = upperTypes(json.treeToValue(schema, Map::class.java))!!
+
+    fun geminiCheckSchema(): Any = upperTypes(json.treeToValue(checkSchema, Map::class.java))!!
 
     /** 과목 · 자료 · 문제 수 · 페이지 본문 */
     fun user(r: GenerationRequest): String = buildString {
@@ -27,11 +33,7 @@ class QuestionPrompt(private val json: JsonMapper) {
         appendLine("자료: ${r.fileTitle}")
         appendLine("만들 문제 수: ${r.count}")
         appendLine()
-        r.pages.forEach { p ->
-            appendLine("<page number=\"${p.page}\">")
-            appendLine(p.text)
-            appendLine("</page>")
-        }
+        appendPages(r.pages)
     }
 
     private fun upperTypes(node: Any?): Any? = when (node) {

@@ -1,5 +1,6 @@
 package app.daybit.bit
 
+import app.daybit.bit.generation.GeminiClient
 import app.daybit.bit.generation.GeminiQuestionGenerator
 import app.daybit.bit.generation.GenerationRequest
 import app.daybit.bit.generation.PageText
@@ -59,7 +60,7 @@ class GeminiFallbackTest {
             ),
         )
         val json = JsonMapper()
-        return GeminiQuestionGenerator(props, json, QuestionPrompt(json))
+        return GeminiQuestionGenerator(GeminiClient(props, json), json, QuestionPrompt(json))
     }
 
     private val request = GenerationRequest("운영체제", "lec08", listOf(PageText(1, "deadlock")), 3)

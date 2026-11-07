@@ -1,0 +1,30 @@
+{
+  "type": "object",
+  "properties": {
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "index": { "type": "integer" },
+                "reason": { "type": "string" },
+                "matches": { "type": "string", "enum": ["yes", "no", "unsure"] }
+              },
+              "required": ["index", "reason", "matches"],
+              "propertyOrdering": ["index", "reason", "matches"]
+            }
+          }
+        },
+        "required": ["id", "checks"],
+        "propertyOrdering": ["id", "checks"]
+      }
+    }
+  },
+  "required": ["results"]
+}

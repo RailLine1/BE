@@ -77,7 +77,9 @@ class QuestionBankService(
             log.info("Gemini 키가 없어 문제 생성을 건너뛰어요: fileId={}", fileId)
             return 0
         }
-        return store.save(material, callWithRetry(material.request(count)), "gemini")
+        val result = store.save(material, callWithRetry(material.request(count)), "gemini")
+        store.check(material, result.pending)
+        return result.saved
     }
 
     // ---------- 목표 개수 (P-BIT-02) ----------
