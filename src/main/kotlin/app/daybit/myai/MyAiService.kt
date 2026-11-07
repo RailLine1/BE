@@ -4,10 +4,12 @@ import app.daybit.bit.generation.GeneratedQuestion
 import app.daybit.bit.generation.QuestionBankService
 import app.daybit.bit.generation.QuestionPrompt
 import app.daybit.bit.generation.QuestionStore
+import app.daybit.bit.generation.QuestionsSavedEvent
 import app.daybit.connector.ToolError
 import app.daybit.course.CourseService
 import app.daybit.global.common.MyAi
 import org.slf4j.LoggerFactory
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.core.io.ClassPathResource
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.scheduling.annotation.Scheduled
@@ -30,6 +32,7 @@ class MyAiService(
     private val bank: QuestionBankService,
     private val courses: CourseService,
     private val clock: Clock,
+    private val events: ApplicationEventPublisher,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val scheduleTemplate = ClassPathResource("prompts/myai-schedule.md").inputStream
@@ -93,13 +96,14 @@ class MyAiService(
         val pages = material.pages.associate { it.page to it.text }
         val valid = questions.filter { store.isWellFormed(it, pages.keys) }
         if (valid.isEmpty()) throw ToolError("형식이 맞는 문제가 없어요. schema 와 rules 를 다시 확인해 주세요. (받은 ${questions.size}개)")
-        val saved = store.save(material, valid, ai.name)
-        val verified = valid.count { store.isGrounded(it, pages.getValue(it.evidencePage)) }
+        val result = store.save(material, valid, ai.name)
+        // 정답 숨긴 검수(#52)는 커밋 뒤 별도 스레드에서 해요. 제출 응답이 늦어지지 않게요
+        if (result.pending.isNotEmpty()) events.publishEvent(QuestionsSavedEvent(target, result.pending))
         return mapOf(
-            "saved" to saved,
-            "verified" to verified,
+            "saved" to result.saved,
+            "verified" to result.grounded,
             "rejected" to questions.size - valid.size,
-            "message" to "저장했어요. 근거 문장이 자료에서 확인된 문제(verified)만 출제돼요. get_jobs 로 다음 자료를 받아 주세요.",
+            "message" to "저장했어요. 근거 문장이 자료에서 확인되고(verified) 정답 검수를 통과한 문제만 출제돼요. get_jobs 로 다음 자료를 받아 주세요.",
         )
     }
 

@@ -3,8 +3,12 @@ package app.daybit.bit
 import app.daybit.TestcontainersConfiguration
 import app.daybit.bit.generation.GeneratedQuestion
 import app.daybit.bit.generation.GenerationRequest
+import app.daybit.bit.generation.CheckItem
+import app.daybit.bit.generation.PageText
 import app.daybit.bit.generation.QuestionBankService
+import app.daybit.bit.generation.QuestionChecker
 import app.daybit.bit.generation.QuestionGenerator
+import app.daybit.bit.generation.Verdict
 import app.daybit.support.Fixtures
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -36,11 +40,23 @@ class FakeQuestionGenerator : QuestionGenerator {
     }
 }
 
+/** Gemini 대신 쓰는 가짜 검수기. 기본은 꺼져 있어 근거 검증만 봐요 */
+class FakeQuestionChecker : QuestionChecker {
+    override var enabled = false
+    var respond: (List<CheckItem>) -> Map<Long, List<Verdict>> = { emptyMap() }
+
+    override fun check(pages: List<PageText>, items: List<CheckItem>) = respond(items)
+}
+
 @TestConfiguration(proxyBeanMethods = false)
 class FakeGeneratorConfig {
     @Bean
     @Primary
     fun fakeQuestionGenerator() = FakeQuestionGenerator()
+
+    @Bean
+    @Primary
+    fun fakeQuestionChecker() = FakeQuestionChecker()
 }
 
 @Import(TestcontainersConfiguration::class, FakeGeneratorConfig::class)
@@ -53,6 +69,7 @@ class QuestionBankFlowTest(
     @Autowired val jdbc: JdbcClient,
     @Autowired val fake: FakeQuestionGenerator,
     @Autowired val bank: QuestionBankService,
+    @Autowired val checker: FakeQuestionChecker,
 ) {
     private val f = Fixtures(mvc, json, jdbc)
 
@@ -61,6 +78,8 @@ class QuestionBankFlowTest(
         fake.enabled = true
         fake.respond = { emptyList() }
         fake.requests.clear()
+        checker.enabled = false
+        checker.respond = { emptyMap() }
     }
 
     private fun q(
@@ -80,6 +99,7 @@ class QuestionBankFlowTest(
                 q(quote = "Round robin gives each   process\na time quantum"),     // 공백 · 줄바꿈이 달라도 통과
                 q(concept = "Paging", quote = "This sentence is not in the material at all", page = 2),
                 q(concept = "Broken", choices = listOf("A", "A", "B", "C")),       // 보기 중복 → 버림
+                q(concept = "Broken", choices = listOf("Round robin", "Round  robin", "B", "C")),  // 공백만 다른 보기도 중복
                 q(concept = "Broken", page = 9),                                     // 없는 페이지 → 버림
                 q(concept = "Broken", answer = 4),                                   // 정답 번호 범위 밖 → 버림
             )
@@ -101,6 +121,61 @@ class QuestionBankFlowTest(
         assertThat(request.pages.map { it.page }).containsExactly(1, 2)
         // 시험일이 없으면 14일 × 1.5 = 21개가 목표지만, 한 번에 최대 10개까지만 요청해요
         assertThat(request.count).isEqualTo(10)
+    }
+
+    @Test
+    fun `보기를 섞어 저장하고, 정답 숨긴 검수에서 정답이 하나로 맞은 문제만 verified 예요`() {
+        val admin = f.newUser()
+        val (courseId, _) = f.createCourse(admin)
+        checker.enabled = true
+        // 검수기는 정답 번호를 모르고 보기 내용으로만 판단해요
+        checker.respond = { items ->
+            items.associate { item ->
+                item.id to item.choices.mapIndexed { i, c ->
+                    Verdict(i, when {
+                        c == "Round robin" -> "yes"
+                        c == "Priority" && item.stem.contains("둘") -> "yes"   // 정답이 둘
+                        c == "SJF" && item.stem.contains("모름") -> "unsure"
+                        else -> "no"
+                    })
+                }
+            }
+        }
+        fake.respond = {
+            listOf(
+                q(),
+                q().copy(stem = "정답이 둘인 문제"),
+                q().copy(stem = "모름이 있는 문제"),
+                q().copy(stem = "정답이 다른 문제", answerIdx = 0),                                      // 생성 정답 FIFO
+                q(quote = "This sentence is not in the material at all").copy(stem = "근거 없는 문제"),   // 근거 검증 탈락 → 검수 안 함
+            )
+        }
+
+        f.uploadReady(admin, courseId, "Round robin gives each process a time quantum.")
+        waitQuestions(courseId, 5)
+        data class Saved(val stem: String, val choices: List<String>, val answer: Int, val verified: Boolean)
+        val rows = jdbc.sql("select stem, choices::text as choices, answer_idx, verified from questions where course_id = :c order by id")
+            .param("c", courseId)
+            .query { rs, _ ->
+                Saved(rs.getString("stem"), json.readTree(rs.getString("choices")).toList().map { it.asString() },
+                    rs.getInt("answer_idx"), rs.getBoolean("verified"))
+            }.list()
+        assertThat(rows.filter { it.verified }.map { it.stem }).containsExactly("Which algorithm uses a time quantum?")
+        // 섞은 뒤에도 정답 번호가 가리키는 보기는 그대로예요
+        rows.filter { it.stem != "정답이 다른 문제" }.forEach { assertThat(it.choices[it.answer]).isEqualTo("Round robin") }
+        assertThat(rows.single { it.stem == "정답이 다른 문제" }.let { it.choices[it.answer] }).isEqualTo("FIFO")
+    }
+
+    @Test
+    fun `검수 호출이 실패하면 출제하지 않아요`() {
+        val admin = f.newUser()
+        val (courseId, _) = f.createCourse(admin)
+        checker.enabled = true
+        checker.respond = { error("Gemini 503") }
+        fake.respond = { listOf(q()) }
+
+        f.uploadReady(admin, courseId, "Round robin gives each process a time quantum.")
+        assertThat(waitQuestions(courseId, 1).map { it.verified }).containsExactly(false)
     }
 
     @Test
