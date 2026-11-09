@@ -100,9 +100,17 @@ class ConnectorFlowTest(
             content = """{"jsonrpc":"2.0","method":"notifications/initialized"}"""
         }.andExpect { status { isAccepted() } }
 
-        val tools = rpc(token, "tools/list", session = session).andExpect { status { isOk() } }
-            .andReturn().response.contentAsString.let { json.readTree(it).path("result").path("tools").toList().map { t -> t.path("name").asString() } }
+        val toolList = rpc(token, "tools/list", session = session).andExpect { status { isOk() } }
+            .andReturn().response.contentAsString.let { json.readTree(it).path("result").path("tools").toList() }
+        val tools = toolList.map { t -> t.path("name").asString() }
         assertThat(tools).containsExactly("list_courses", "list_materials", "search", "read_pages", "get_page_image", "get_jobs", "submit_questions")
+        // 읽기 도구는 호출마다 승인을 묻지 않게 읽기 전용으로 표시해요
+        val readOnly = toolList.associate { t -> t.path("name").asString() to t.path("annotations").path("readOnlyHint").asBoolean(false) }
+        assertThat(readOnly.filterValues { it }.keys)
+            .containsExactlyInAnyOrder("list_courses", "list_materials", "search", "read_pages", "get_page_image", "get_jobs")
+        assertThat(toolList.first { it.path("name").asString() == "submit_questions" }.path("annotations").has("readOnlyHint")).isTrue()
+        assertThat(readOnly["submit_questions"]).isFalse()
+        assertThat(toolList.first { it.path("name").asString() == "read_pages" }.path("annotations").path("destructiveHint").asBoolean(true)).isFalse()
         rpc(token, "resources/list").andExpect { jsonPath("$.error.code") { value(-32601) } }
 
         val claude = connector(user).path("clients").toList().first { it.path("client").asString() == "claude" }

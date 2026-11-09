@@ -86,6 +86,7 @@ PDF 텍스트 추출은 업로드 트랜잭션이 커밋된 뒤 별도 스레드
 - `search`는 키워드 검색(`ilike`)으로 시작한다. 의미 검색(pgvector)은 하지 않는다.
 - 원본 열람 off일 때 `read_pages`를 제한할지(P-MAT-06 [미정])는 정책서 기본값대로 제한하지 않는다.
 - `get_page_image`는 페이지 이미지를 미리 저장하지 않고 요청 때 원본 PDF에서 PNG로 그린다. `file_pages.image_key`는 쓰지 않는다.
+- 자료 읽기 도구 5개(`list_courses` `list_materials` `search` `read_pages` `get_page_image`)는 MCP `annotations`에 `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false`를 단다. 표시가 없으면 Claude가 호출마다 승인을 묻는다.
 
 ## D11. AI 작업 공간 결과는 서명 키 대신 GitHub OIDC로 검증한다
 
