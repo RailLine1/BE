@@ -40,14 +40,17 @@ class McpController(
     @GetMapping("/mcp/u/{token}")
     fun stream(@PathVariable token: String): ResponseEntity<Void> = ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).build()
 
-    @PostMapping("/mcp/u/{token}", consumes = [MediaType.APPLICATION_JSON_VALUE])
+    // ChatGPT 는 본문이 JSON 이어도 Content-Type 을 application/octet-stream 으로 보내요. 형식과 상관없이 본문을 JSON 으로 읽어요.
+    @PostMapping("/mcp/u/{token}")
     fun handle(
         @PathVariable token: String,
-        @RequestBody body: JsonNode,
+        @RequestBody(required = false) raw: ByteArray?,
         @RequestHeader("Mcp-Session-Id", required = false) sessionId: String?,
         @RequestHeader("User-Agent", required = false) userAgent: String?,
     ): ResponseEntity<Any> {
         val userId = connectors.userOf(token) ?: return ResponseEntity.status(HttpStatus.NOT_FOUND).build()
+        val body = raw?.let { runCatching { json.readTree(it) }.getOrNull() }
+            ?: return ok(error(null, -32700, "본문을 JSON 으로 읽지 못했어요."))
         if (!body.isObject) return ok(error(null, -32600, "요청은 JSON-RPC 객체 하나여야 해요."))
 
         val id = body.get("id")

@@ -55,6 +55,17 @@ class ConnectorFlowTest(
     }
 
     @Test
+    fun `Content-Type 이 JSON 이 아니어도 본문을 JSON-RPC 로 받아요 (ChatGPT)`() {
+        val token = tokenOf(connector(f.newUser()).path("url").asString())
+        mvc.post("/mcp/u/$token") {
+            contentType = MediaType.APPLICATION_OCTET_STREAM
+            content = """{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"openai-mcp"}}}"""
+        }.andExpect { status { isOk() }; jsonPath("$.result.serverInfo.name") { value("daybit") } }
+        mvc.post("/mcp/u/$token") { contentType = MediaType.TEXT_PLAIN; content = "not json" }
+            .andExpect { status { isOk() }; jsonPath("$.error.code") { value(-32700) } }
+    }
+
+    @Test
     fun `OAuth 메타데이터를 내보내지 않아 AI 앱이 로그인 없이 연결해요`() {
         val token = tokenOf(connector(f.newUser()).path("url").asString())
         // Claude 는 이 주소가 200이면 OAuth 로그인을 시도하고, 동적 등록이 없어 연결에 실패해요

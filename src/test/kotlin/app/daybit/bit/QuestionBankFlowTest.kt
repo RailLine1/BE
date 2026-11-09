@@ -6,6 +6,7 @@ import app.daybit.bit.generation.GenerationRequest
 import app.daybit.bit.generation.CheckItem
 import app.daybit.bit.generation.PageText
 import app.daybit.bit.generation.QuestionBankService
+import app.daybit.bit.generation.QuestionStore
 import app.daybit.bit.generation.QuestionChecker
 import app.daybit.bit.generation.QuestionGenerator
 import app.daybit.bit.generation.Verdict
@@ -70,6 +71,7 @@ class QuestionBankFlowTest(
     @Autowired val fake: FakeQuestionGenerator,
     @Autowired val bank: QuestionBankService,
     @Autowired val checker: FakeQuestionChecker,
+    @Autowired val store: QuestionStore,
 ) {
     private val f = Fixtures(mvc, json, jdbc)
 
@@ -167,7 +169,7 @@ class QuestionBankFlowTest(
     }
 
     @Test
-    fun `검수 호출이 실패하면 출제하지 않아요`() {
+    fun `검수 호출이 실패하면 출제하지 않고, 한 시간 뒤 다시 검수해요`() {
         val admin = f.newUser()
         val (courseId, _) = f.createCourse(admin)
         checker.enabled = true
@@ -176,6 +178,18 @@ class QuestionBankFlowTest(
 
         f.uploadReady(admin, courseId, "Round robin gives each process a time quantum.")
         assertThat(waitQuestions(courseId, 1).map { it.verified }).containsExactly(false)
+        val pending = { jdbc.sql("select check_pending from questions where course_id = :c").param("c", courseId).query(Boolean::class.java).single() }
+        assertThat(pending()).isTrue()
+        // 실패한 직후에는 다시 시도할 때가 아니에요
+        assertThat(jdbc.sql("select count(*) from questions where course_id = :c and check_after > now() + interval '50 minutes'")
+            .param("c", courseId).query(Long::class.java).single()).isEqualTo(1L)
+
+        // Gemini 가 살아나고 한 시간이 지나면 다시 검수해서 출제할 수 있어요
+        checker.respond = { items -> items.associate { item -> item.id to item.choices.mapIndexed { i, c -> Verdict(i, if (c == "Round robin") "yes" else "no") } } }
+        jdbc.sql("update questions set check_after = now() - interval '1 minute' where course_id = :c").param("c", courseId).update()
+        repeat(20) { if (pending()) store.retryPendingChecks() }
+        assertThat(pending()).isFalse()
+        assertThat(jdbc.sql("select verified from questions where course_id = :c").param("c", courseId).query(Boolean::class.java).single()).isTrue()
     }
 
     @Test
