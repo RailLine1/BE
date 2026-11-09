@@ -3,6 +3,7 @@ package app.daybit.bit.generation
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.scheduling.annotation.Async
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.transaction.event.TransactionPhase
 import org.springframework.transaction.event.TransactionalEventListener
@@ -103,16 +104,16 @@ class QuestionStore(
                     val id = jdbc.sql(
                         """
                         insert into questions (course_id, concept_id, scope, stem, choices, answer_idx, explanation,
-                                               evidence_file_id, evidence_page, source, verified)
+                                               evidence_file_id, evidence_page, source, verified, check_pending)
                         values (:courseId, :conceptId, :scope, :stem, cast(:choices as jsonb), :answer, :explanation,
-                                :fileId, :page, :source, :verified)
+                                :fileId, :page, :source, :verified, :pending)
                         returning id
                         """.trimIndent(),
                     ).param("courseId", material.courseId).param("conceptId", conceptId).param("scope", material.scope)
                         .param("stem", q.stem.trim()).param("choices", json.writeValueAsString(q.choices.map { it.trim() }))
                         .param("answer", q.answerIdx).param("explanation", q.explanation.trim())
                         .param("fileId", material.fileId).param("page", q.evidencePage).param("source", source)
-                        .param("verified", ok && !checker.enabled)
+                        .param("verified", ok && !checker.enabled).param("pending", ok && checker.enabled)
                         .query(Long::class.java).single()
                     if (ok && checker.enabled) pending += id
                 }
@@ -135,15 +136,38 @@ class QuestionStore(
         val verdicts = try {
             checker.check(material.pages, rows.map { it.first })
         } catch (e: Exception) {
-            log.warn("정답 숨긴 검수 실패: fileId={}, {}문제는 출제하지 않아요", material.fileId, rows.size, e)
+            // Gemini 장애(503) · 한도(429)일 때가 많아요. 버리지 않고 한 시간 뒤에 다시 검수해요.
+            jdbc.sql("update questions set check_after = now() + interval '1 hour' where id in (:ids)").param("ids", ids).update()
+            log.warn("정답 숨긴 검수 실패: fileId={}, {}문제는 한 시간 뒤에 다시 검수해요", material.fileId, rows.size, e)
             return 0
         }
+        // 판정이 나온 문제는 통과 여부와 상관없이 더 검수하지 않아요.
+        jdbc.sql("update questions set check_pending = false, check_after = null where id in (:ids)").param("ids", ids).update()
         val passed = rows.filter { (item, answer) -> passes(verdicts[item.id], answer) }.map { it.first.id }
         rows.filterNot { it.first.id in passed }.forEach { (item, answer) ->
             log.info("정답 숨긴 검수 탈락: questionId={}, 정답={}, 판정={}", item.id, answer, verdicts[item.id]?.map { it.matches })
         }
         if (passed.isNotEmpty()) jdbc.sql("update questions set verified = true where id in (:ids)").param("ids", passed).update()
         return passed.size
+    }
+
+    /** 검수를 못 한 문제를 자료별로 다시 검수해요. 한 번에 자료 몇 개만 봐서 한도를 더 두드리지 않아요 */
+    @Scheduled(fixedDelayString = "PT10M", initialDelayString = "PT5M")
+    fun retryPendingChecks() {
+        if (!checker.enabled) return
+        val due = jdbc.sql(
+            """
+            select evidence_file_id, array_agg(id order by id) as ids from questions
+             where check_pending and (check_after is null or check_after < now()) and evidence_file_id is not null
+             group by evidence_file_id order by min(created_at) limit :limit
+            """.trimIndent(),
+        ).param("limit", RETRY_FILES).query { rs, _ ->
+            rs.getLong(1) to (rs.getArray(2).array as Array<*>).map { (it as Number).toLong() }
+        }.list()
+        due.forEach { (fileId, ids) ->
+            val material = material(fileId) ?: return@forEach
+            runCatching { check(material, ids) }.onFailure { log.warn("정답 숨긴 검수 재시도 실패: fileId={}", fileId, it) }
+        }
     }
 
     @Async
@@ -181,6 +205,7 @@ class QuestionStore(
         private val WHITESPACE = Regex("\\s+")
         private const val MIN_QUOTE = 10
         private const val MAX_CHARS = 80_000
+        private const val RETRY_FILES = 3
     }
 }
 
