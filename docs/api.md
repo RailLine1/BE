@@ -110,7 +110,7 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 |---|---|---|---|---|---|
 | ✅ | GET | `/explore/courses?sort=subscribers\|newest&page&size` | 로그인 | 진행 중인 공개 과목. 구독자 수는 정렬에만 사용 | P-EXP-01, 02, 05 |
 | ✅ | GET | `/explore/search?q=` | 로그인 | 코드 전체 일치(모든 과목)를 맨 앞에, 이어서 과목명 부분 일치(공개 · 진행 중). 최대 50개 | P-EXP-03 |
-| ✅ | GET | `/explore/courses/{code}` | 로그인 | 과목 정보 + `myStatus` (`subscribed` · `pending` · `none`) | P-COURSE-06 |
+| ✅ | GET | `/explore/courses/{code}` | 로그인 | 과목 정보 + `myStatus` (`subscribed` · `managing`(관리자 · 공동 관리자) · `pending` · `none`) | P-COURSE-06 |
 | ✅ | POST | `/explore/courses/{code}/subscribe` | 로그인 | 공개 → `subscribed`, 비공개 → `pending`, 종료 → 409. 이미 구독·요청했으면 현재 상태 반환 | P-COURSE-03, P-EXP-04 |
 
 과목 코드는 대소문자를 구분하지 않습니다.

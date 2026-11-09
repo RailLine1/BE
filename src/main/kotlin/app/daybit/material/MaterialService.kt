@@ -98,7 +98,7 @@ class MaterialService(
             select id, title, status, pages, created_at
               from files
              where folder_id = :folderId and (:manager or status = 'ready')
-             order by created_at desc, id desc
+             order by created_at, id   -- 올린 순서. 강의 자료는 보통 1강부터 차례로 올린다
             """.trimIndent(),
         ).param("folderId", folderId).param("manager", manager)
             .query { rs, _ ->

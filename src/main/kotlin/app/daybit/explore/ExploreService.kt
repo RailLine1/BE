@@ -19,7 +19,7 @@ class ExploreService(private val jdbc: JdbcClient) {
     private val itemSelect = """
         select c.id, c.code, c.name, c.icon, c.term, c.visibility, c.intro, c.state,
                a.nickname as admin,
-               coalesce(me.status, 'none') as my_status
+               coalesce(me.status, 'none') as my_status, me.role as my_role
           from courses c
           join course_members am on am.course_id = c.id and am.role = 'admin'
           join users a on a.id = am.user_id
@@ -134,8 +134,9 @@ class ExploreService(private val jdbc: JdbcClient) {
         myStatus = myStatus(),
     )
 
+    // 관리자 · 공동 관리자는 탐색에서 "구독 중" 대신 "관리 중"으로 보여요
     private fun ResultSet.myStatus() = when (getString("my_status")) {
-        "active" -> MyStatus.subscribed
+        "active" -> if (getString("my_role") in setOf("admin", "co")) MyStatus.managing else MyStatus.subscribed
         "pending" -> MyStatus.pending
         else -> MyStatus.none
     }

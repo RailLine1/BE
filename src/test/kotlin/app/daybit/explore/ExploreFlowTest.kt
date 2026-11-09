@@ -57,6 +57,8 @@ class ExploreFlowTest(
             .andExpect { status { isOk() }; jsonPath("$.role") { value("member") }; jsonPath("$.subscribers") { value(2) } }
         mvc.get("/api/v1/explore/courses/$code") { header("Authorization", user.bearer) }
             .andExpect { jsonPath("$.myStatus") { value("subscribed") } }
+        mvc.get("/api/v1/explore/courses/$code") { header("Authorization", admin.bearer) }
+            .andExpect { jsonPath("$.myStatus") { value("managing") } }
     }
 
     @Test
