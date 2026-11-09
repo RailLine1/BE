@@ -6,6 +6,7 @@ import app.daybit.global.error.ErrorResponse
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.annotation.Order
 import org.springframework.http.HttpMethod
 import org.springframework.http.MediaType
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
@@ -27,7 +28,24 @@ class SecurityConfig(
     private val jsonMapper: JsonMapper,
 ) {
 
+    /**
+     * 리소스 서버 설정이 OAuth 보호 리소스 메타데이터(/.well-known/oauth-protected-resource)를 자동으로 연다.
+     * 커넥터 주소는 토큰으로 자체 인증하는데, AI 앱(Claude 등)이 이 메타데이터를 보고 OAuth 로그인을 시도하다 실패한다.
+     * 리소스 서버가 없는 체인으로 먼저 받아 404가 되게 한다.
+     */
     @Bean
+    @Order(0)
+    fun wellKnownFilterChain(http: HttpSecurity): SecurityFilterChain {
+        http {
+            securityMatcher("/.well-known/**")
+            csrf { disable() }
+            authorizeHttpRequests { authorize(anyRequest, permitAll) }
+        }
+        return http.build()
+    }
+
+    @Bean
+    @Order(1)
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http {
             csrf { disable() }                 // 쿠키 세션을 쓰지 않는 토큰 기반 API

@@ -99,6 +99,7 @@ class QuestionStore(
                     val q = shuffle(raw, random)
                     val ok = isGrounded(q, pageText.getValue(q.evidencePage))
                     if (ok) grounded++
+                    else log.info("근거 검증 탈락: fileId={}, page={}, quote={}", material.fileId, q.evidencePage, q.evidenceQuote.take(80))
                     val id = jdbc.sql(
                         """
                         insert into questions (course_id, concept_id, scope, stem, choices, answer_idx, explanation,

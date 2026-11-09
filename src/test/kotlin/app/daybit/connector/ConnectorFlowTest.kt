@@ -55,6 +55,15 @@ class ConnectorFlowTest(
     }
 
     @Test
+    fun `OAuth 메타데이터를 내보내지 않아 AI 앱이 로그인 없이 연결해요`() {
+        val token = tokenOf(connector(f.newUser()).path("url").asString())
+        // Claude 는 이 주소가 200이면 OAuth 로그인을 시도하고, 동적 등록이 없어 연결에 실패해요
+        mvc.get("/.well-known/oauth-protected-resource").andExpect { status { isNotFound() } }
+        mvc.get("/.well-known/oauth-protected-resource/mcp/u/$token").andExpect { status { isNotFound() } }
+        mvc.get("/.well-known/oauth-authorization-server").andExpect { status { isNotFound() } }
+    }
+
+    @Test
     fun `처음 조회하면 주소를 발급하고, 이후에는 가리고, 재발급하면 이전 주소는 바로 무효예요`() {
         val user = f.newUser()
         val first = connector(user)
