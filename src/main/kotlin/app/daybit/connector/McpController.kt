@@ -169,6 +169,9 @@ class McpController(
 
         private val AI_PROPERTY = mapOf("ai" to mapOf("type" to "string", "enum" to MyAi.entries.map { it.name }, "description" to "예약 문장에 적힌 값"))
 
+        // 자료 읽기 도구: AI 앱이 호출마다 승인을 묻지 않게 읽기 전용으로 표시한다
+        private val READ_ONLY = mapOf("readOnlyHint" to true, "destructiveHint" to false, "idempotentHint" to true, "openWorldHint" to false)
+
         private fun schema(properties: Map<String, Any>, required: List<String>) =
             mapOf("type" to "object", "properties" to properties, "required" to required)
 
@@ -177,11 +180,13 @@ class McpController(
                 "name" to "list_courses",
                 "description" to "내가 구독한 과목 목록 [{courseId, name, code, term}]",
                 "inputSchema" to schema(emptyMap(), emptyList()),
+                "annotations" to READ_ONLY,
             ),
             mapOf(
                 "name" to "list_materials",
                 "description" to "과목의 폴더와 자료 목록 [{folder, fileId, title, pages}]",
                 "inputSchema" to schema(mapOf("courseId" to mapOf("type" to "integer")), listOf("courseId")),
+                "annotations" to READ_ONLY,
             ),
             mapOf(
                 "name" to "search",
@@ -194,6 +199,7 @@ class McpController(
                     ),
                     listOf("courseId", "query"),
                 ),
+                "annotations" to READ_ONLY,
             ),
             mapOf(
                 "name" to "read_pages",
@@ -205,6 +211,7 @@ class McpController(
                     ),
                     listOf("fileId", "pages"),
                 ),
+                "annotations" to READ_ONLY,
             ),
             mapOf(
                 "name" to "get_page_image",
@@ -213,6 +220,7 @@ class McpController(
                     mapOf("fileId" to mapOf("type" to "integer"), "page" to mapOf("type" to "integer")),
                     listOf("fileId", "page"),
                 ),
+                "annotations" to READ_ONLY,
             ),
             mapOf(
                 "name" to "get_jobs",
