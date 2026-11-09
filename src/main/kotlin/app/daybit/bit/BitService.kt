@@ -164,8 +164,8 @@ class BitService(
             myChoice = me.choice!!,
             elapsedSec = me.elapsedSec!!,
             averageSec = avgSec,
-            // P-BIT-10 동점이면 먼저 제출한 사람이 앞. 1등이면 상위 n% 중 가장 작은 값
-            topPercent = ceil((ahead + 1) * 100.0 / total).toInt(),
+            // P-BIT-10 동점이면 먼저 제출한 사람이 앞. 내 앞에 있는 사람 비율이고, 1등은 1%다(혼자 풀어도 100%가 아니다)
+            topPercent = ceil(ahead * 100.0 / total).toInt().coerceAtLeast(1),
             streak = streak,
             week = week(userId, bit.courseId, bit.openDate),
             score = me.score,
