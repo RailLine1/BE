@@ -83,7 +83,7 @@ class BitFlowTest(
             jsonPath("$.correct") { value(true) }
             jsonPath("$.elapsedSec") { value(30) }
             jsonPath("$.score") { value(970) }
-            jsonPath("$.topPercent") { value(100) }
+            jsonPath("$.topPercent") { value(1) }
             jsonPath("$.streak") { value(1) }
             jsonPath("$.evidence.page") { value(1) }
         }
@@ -114,13 +114,13 @@ class BitFlowTest(
         mvc.post("/api/v1/bits/$bitId/start") { header("Authorization", slow.bearer) }
         mvc.post("/api/v1/bits/$bitId/start") { header("Authorization", fast.bearer) }
         clock.advance(Duration.ofSeconds(10))
-        submit(fast, bitId, answer).andExpect { jsonPath("$.topPercent") { value(100) } }
+        submit(fast, bitId, answer).andExpect { jsonPath("$.topPercent") { value(1) } }
         clock.advance(Duration.ofSeconds(400))
         // 오답 + 300초 상한 → 0 − 300
         submit(slow, bitId, (answer + 1) % 4).andExpect {
             jsonPath("$.correct") { value(false) }
             jsonPath("$.score") { value(-300) }
-            jsonPath("$.topPercent") { value(100) }
+            jsonPath("$.topPercent") { value(50) }
             jsonPath("$.averageSec") { value(210) }   // (10 + 410) / 2
         }
 
