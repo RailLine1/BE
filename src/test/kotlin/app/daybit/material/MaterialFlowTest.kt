@@ -97,6 +97,11 @@ class MaterialFlowTest(
             jsonPath("$.length()") { value(1) }
             jsonPath("$[0].fileId") { value(ready) }
         }
+        // 관리자는 처리 중인 자료도 보고, 먼저 올린 자료가 위에 와요
+        mvc.get("/api/v1/folders/$mid/files") { header("Authorization", admin.bearer) }.andExpect {
+            jsonPath("$[0].fileId") { value(ready) }
+            jsonPath("$[1].fileId") { value(processing) }
+        }
         mvc.get("/api/v1/courses/$courseId/folders") { header("Authorization", member.bearer) }.andExpect {
             jsonPath("$[0].name") { value("mid") }
             jsonPath("$[0].fileCount") { value(1) }

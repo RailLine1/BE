@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController
 enum class ExploreSort { subscribers, newest }
 
 @Suppress("EnumEntryName")
-enum class MyStatus { subscribed, pending, none }
+enum class MyStatus { subscribed, managing, pending, none }
 
 @Schema(description = "탐색 목록 한 줄: 아이콘 · 과목명 · 관리자만 (구독자 수 없음, P-EXP-05)")
 data class ExploreItem(
