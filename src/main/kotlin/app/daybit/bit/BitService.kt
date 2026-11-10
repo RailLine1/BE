@@ -158,6 +158,8 @@ class BitService(
             .param("u", userId).param("c", bit.courseId).query(Int::class.java).optional().orElse(0)
         return ResultTicket(
             courseName = bit.courseName,
+            courseCode = bit.courseCode,
+            concept = bit.concept,
             no = bit.no,
             correct = me.correct!!,
             answer = bit.answer,
@@ -331,6 +333,8 @@ class BitService(
         val id: Long,
         val courseId: Long,
         val courseName: String,
+        val courseCode: String,
+        val concept: String?,
         val no: Int,
         val openDate: LocalDate,
         val openAt: OffsetDateTime,
@@ -345,13 +349,14 @@ class BitService(
     private fun bit(bitId: Long): BitRow? =
         jdbc.sql(
             """
-            select b.id, b.course_id, c.name as course_name, b.no, b.open_date, b.open_at, b.close_at,
+            select b.id, b.course_id, c.name as course_name, c.code as course_code, cn.name as concept, b.no, b.open_date, b.open_at, b.close_at,
                    q.stem, q.choices::text as choices, q.answer_idx, q.explanation, q.evidence_file_id, q.evidence_page,
                    coalesce(f.title, '') as file_title
               from bits b
               join courses c on c.id = b.course_id
               join questions q on q.id = b.question_id
               left join files f on f.id = q.evidence_file_id
+              left join concepts cn on cn.id = q.concept_id
              where b.id = :id
             """.trimIndent(),
         ).param("id", bitId)
@@ -360,6 +365,8 @@ class BitService(
                     id = rs.getLong("id"),
                     courseId = rs.getLong("course_id"),
                     courseName = rs.getString("course_name"),
+                    courseCode = rs.getString("course_code"),
+                    concept = rs.getString("concept"),
                     no = rs.getInt("no"),
                     openDate = rs.getObject("open_date", LocalDate::class.java),
                     openAt = rs.getObject("open_at", OffsetDateTime::class.java),

@@ -32,6 +32,8 @@ data class ExploreItem(
 )
 
 data class CourseInfo(
+    @field:Schema(description = "공유 링크에서 내 오늘의 Bit를 찾을 때 쓴다")
+    val courseId: Long,
     val code: String,
     val name: String,
     val icon: String,

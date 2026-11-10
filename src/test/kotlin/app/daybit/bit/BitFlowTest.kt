@@ -84,6 +84,8 @@ class BitFlowTest(
             jsonPath("$.elapsedSec") { value(30) }
             jsonPath("$.score") { value(970) }
             jsonPath("$.topPercent") { value(1) }
+            jsonPath("$.courseCode") { isString() }
+            jsonPath("$.concept") { doesNotExist() }   // 이 테스트의 문제는 개념 없이 넣었다
             jsonPath("$.streak") { value(1) }
             jsonPath("$.evidence.page") { value(1) }
         }
