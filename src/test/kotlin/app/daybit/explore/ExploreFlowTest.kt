@@ -58,7 +58,7 @@ class ExploreFlowTest(
         mvc.get("/api/v1/explore/courses/$code") { header("Authorization", user.bearer) }
             .andExpect { jsonPath("$.myStatus") { value("subscribed") } }
         mvc.get("/api/v1/explore/courses/$code") { header("Authorization", admin.bearer) }
-            .andExpect { jsonPath("$.myStatus") { value("managing") } }
+            .andExpect { jsonPath("$.myStatus") { value("managing") }; jsonPath("$.courseId") { value(id) } }
     }
 
     @Test

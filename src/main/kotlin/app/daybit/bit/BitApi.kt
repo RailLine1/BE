@@ -56,6 +56,10 @@ data class SubmitRequest(
 @Schema(description = "결과 티켓 (P-BIT-10, 11)")
 data class ResultTicket(
     val courseName: String,
+    @field:Schema(description = "공유 링크(/s/{코드})에 쓰는 과목 코드")
+    val courseCode: String,
+    @field:Schema(description = "문제가 다룬 개념 이름. 없으면 null", nullable = true)
+    val concept: String?,
     val no: Int,
     val correct: Boolean,
     val answer: Int,

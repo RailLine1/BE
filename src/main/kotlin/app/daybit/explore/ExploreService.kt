@@ -77,6 +77,7 @@ class ExploreService(private val jdbc: JdbcClient) {
             .param("userId", userId).param("code", code.trim())
             .query { rs, _ ->
                 CourseInfo(
+                    courseId = rs.getLong("id"),
                     code = rs.getString("code"),
                     name = rs.getString("name"),
                     icon = rs.getString("icon"),
