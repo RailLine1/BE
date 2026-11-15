@@ -63,6 +63,7 @@ class SecurityConfig(
                 authorize("/swagger-ui.html", permitAll)
                 authorize("/mcp/**", permitAll)                  // 커넥터: 주소 안의 토큰으로 자체 인증 (P-AI-02)
                 authorize("/local-files/**", permitAll)          // 로컬 저장소 임시 URL: 서명으로 자체 검증
+                authorize("/api/v1/booth/**", permitAll)         // 부스 퀴즈: 로그인 없이 닉네임으로
                 authorize(anyRequest, authenticated)
             }
             oauth2ResourceServer {

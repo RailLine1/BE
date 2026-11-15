@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import java.time.Clock
@@ -102,6 +103,18 @@ class DevController(
              where id = (select concept_id from questions where id = :q)
             """.trimIndent(),
         ).param("q", questionId).update()
+    }
+
+    @Operation(
+        summary = "부스 퀴즈 기록 지우기",
+        description = "부적절한 닉네임이나 점검 기록을 랭킹에서 지워요. 지운 닉네임은 다시 쓸 수 있어요. 개발자 계정만. 없으면 404",
+    )
+    @DeleteMapping("/booth/plays")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun deleteBoothPlay(@LoginUser userId: Long, @RequestParam nickname: String) {
+        if (!isDevAdmin(userId)) throw ApiException(ErrorCode.FORBIDDEN)
+        val deleted = jdbc.sql("delete from booth_plays where nickname = :n").param("n", nickname.trim()).update()
+        if (deleted == 0) throw ApiException(ErrorCode.NOT_FOUND)
     }
 
     /** 관리자 · 공동 관리자만. 개발자 계정은 과목만 있으면 돼요 */

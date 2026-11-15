@@ -208,7 +208,18 @@ GitHub 로그인의 서버 콜백(`/auth/github/callback`)은 GitHub가 호출�
 |---|---|---|---|---|---|
 | ✅ | POST | `/dev/courses/{courseId}/bit/open-now` | 🅰 🅲 | 지금 Bit 날짜(17시 전이면 어제)의 Bit가 없으면 평소 규칙으로 바로 만듭니다. 이미 있으면 그대로 반환(`created: false`). 낼 문제가 없으면 409 `NO_QUESTION_READY` | P-BIT-03, 04, 06 |
 | ✅ | POST | `/dev/bits/{bitId}/reset-me` | 🅰 🅲 🅼 | 이 Bit의 내 풀이를 지워 다시 시작할 수 있게 합니다 → 204. 연속 일수 · 정답 수 같은 누적 기록은 되돌리지 않습니다 | P-BIT-09 |
+| ✅ | DELETE | `/dev/booth/plays?nickname=` | 개발자 계정 | 부스 퀴즈 기록 지우기(부적절한 닉네임 · 점검 기록) → 204. 지운 닉네임은 다시 쓸 수 있습니다. 없으면 404 | |
 | ✅ | DELETE | `/dev/bits/{bitId}` | 🅰 🅲 | 점검 · 시연 흔적 정리: Bit와 풀이 · 메모를 지우고(아카이브에서도 사라짐) 낸 문제를 다시 낼 수 있게 돌려놓습니다 → 204. 누적 기록은 되돌리지 않습니다 | P-ARC-01 |
+
+### 부스 퀴즈
+
+행사 부스 운영용으로 앱 기능과 별개입니다. 로그인 없이 닉네임 하나당 한 번 풀고, 모든 기록이 랭킹에 공개됩니다. 문제는 `src/main/resources/booth/questions.json`에 두며 모두 같은 문제를 같은 순서로 풉니다. 시간은 서버가 시작부터 제출까지 잽니다.
+
+| 상태 | 메서드 | 경로 | 권한 | 요약 | 정책 |
+|---|---|---|---|---|---|
+| ✅ | POST | `/booth/plays` | 🔓 | 닉네임(공백 제거 1~10자)으로 시작 → 풀이 id + 문제(정답 없음). 쓴 닉네임이면 409 `NICKNAME_TAKEN` | |
+| ✅ | POST | `/booth/plays/{playId}/submit` | 🔓 | 고른 보기 제출 → 맞힌 수, 걸린 시간, 내 순위, 정답 · 해설. 개수가 다르면 400, 두 번째 제출 409 `ALREADY_ATTEMPTED`, 없는 id 404 | |
+| ✅ | GET | `/booth/ranking` | 🔓 | 랭킹(맞힌 수 많은 순 → 빨리 푼 순 → 먼저 낸 순). `?limit=` 기본 100, 최대 500 | |
 
 ## MCP 서버
 
