@@ -57,6 +57,7 @@ erDiagram
 | | `myai_runs` | 내 AI 출제 예약 실행 기록. (사용자, AI `claude` · `chatgpt`)별 첫 · 마지막 실행 시각. 행이 있으면 등록됨(P-AI-08), 48시간 실행이 없으면 출처 전환(P-BIT-15) (V4). 작업 공간 테이블(`workspaces` · `workspace_ais` · `workspace_jobs`)은 V4에서 지움 | 사용 중 |
 | 알림 | `push_tokens` | FCM 기기 토큰, 플랫폼(`android` · `ios` · `web`) (D4) | 사용 중 |
 | | `notifications` | 알림 기록. 종류(`bit_open` · `join_approved` · `promoted_admin` · `quiz_source_fallback`), `payload jsonb` | 사용 중 (기록 후 FCM 발송) |
+| 부스 | `booth_plays` | 행사 부스 퀴즈 기록. 닉네임(unique) 하나당 한 번, 서버 기록 시작 · 제출 시각, 고른 보기, 맞힌 수, 걸린 시간(ms). 문제는 DB가 아니라 `booth/questions.json` (V6) | 사용 중 (부스 운영용) |
 
 ## 핵심 제약
 
